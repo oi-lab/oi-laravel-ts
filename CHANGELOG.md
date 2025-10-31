@@ -2,98 +2,69 @@
 
 All notable changes to `oi-laravel-ts` will be documented in this file.
 
-## [Unreleased]
+## [1.0.0] - 2025-01-30
 
-## [1.2.0] - 2025-01-30
+Initial release of OI Laravel TypeScript Generator - a comprehensive Laravel package that automatically generates TypeScript interfaces from Eloquent models.
 
-### Changed
-- **MAJOR REFACTORING**: Complete architectural overhaul of Eloquent analysis pipeline
-- Split monolithic `Eloquent` class (684 lines) into 7 specialized services
-- Improved code organization with dedicated `Eloquent/` folder for model analysis
+### Core Features
+- **Automatic Interface Generation**: Converts Eloquent models to TypeScript interfaces with full type safety
+- **Relationship Support**: Handles all Laravel relationship types (HasOne, HasMany, BelongsTo, BelongsToMany, MorphTo, MorphMany, etc.)
+- **Custom Casts**: Automatic detection and conversion of Laravel custom casts
+- **DataObject Support**: Analyzes and generates interfaces for PHP DataObject classes
+- **PHPDoc Support**: Reads PHPDoc annotations for complex types
+- **Watch Mode**: Monitor models directory and automatically regenerate on changes
+- **Configurable Options**: Extensive configuration for customization
+- **JSON-LD Support**: Optional support for JSON-LD data structures
+- **Relationship Counts**: Automatic generation of `_count` fields for relationships
+- **External Type Imports**: Reference and import external TypeScript types
 
-### Added
-- `ModelDiscovery`: Specialized service for discovering Eloquent models
-- `TypeExtractor`: Dedicated extractor for model type information
-- `SchemaBuilder`: Orchestrator for building complete schema
-- `RelationshipResolver`: Focused resolver for model relationships
-- `CastTypeResolver`: Specialized resolver for custom Laravel casts
-- `DataObjectAnalyzer`: Analyzer for PHP DataObject classes
-- `PhpToTypeScriptConverter`: Dedicated PHP to TypeScript type converter
-- Comprehensive PHPDoc documentation on all public methods (500+ lines)
-- Complete architecture update in `ARCHITECTURE.md` with both pipelines documented
+### Architecture
+Built with clean architecture principles and separation of concerns:
 
-### Improved
-- Separation of concerns between analysis (Eloquent) and generation (Convert) pipelines
-- Code testability increased with isolated, single-responsibility classes
-- Maintainability improved through clear component boundaries
-- Extensibility enhanced with plugin-like architecture for resolvers
-- Better IDE support with detailed type hints and structured array shapes
+#### Analysis Pipeline (Eloquent)
+- `Eloquent`: Facade for model analysis and schema generation
+- `ModelDiscovery`: Discovers all Eloquent models in the application
+- `TypeExtractor`: Extracts type information from model properties
+- `RelationshipResolver`: Detects and extracts relationship metadata
+- `CastTypeResolver`: Resolves custom Laravel casts to TypeScript types
+- `DataObjectAnalyzer`: Analyzes PHP DataObject classes
+- `PhpToTypeScriptConverter`: Converts PHP types to TypeScript
+- `SchemaBuilder`: Orchestrates complete schema building
 
-### Technical
-- Applied Facade pattern for public API (`Eloquent` class)
-- Implemented Dependency Injection throughout the pipeline
-- Each class follows Single Responsibility Principle strictly
-- Reduced coupling between model analysis and TypeScript generation
-- Better error handling with try-catch in appropriate places
+#### Generation Pipeline (Convert)
+- `Convert`: Main orchestrator coordinating TypeScript generation
+- `TypeScriptTypeConverter`: Handles schema to TypeScript type conversion
+- `DataObjectProcessor`: Processes PHP DataObjects and generates interfaces
+- `ModelInterfaceGenerator`: Generates TypeScript interfaces for models
+- `ImportManager`: Manages TypeScript import statements
+- `JsonLdGenerator`: Generates JSON-LD support interfaces
 
-### Backward Compatibility
-- ✅ 100% backward compatible - no breaking changes
-- Public API remains identical (`Eloquent::getSchema()`, `Eloquent::getTypes()`, etc.)
-- Same output format and structure
-- No migration required for existing projects
+### Technical Excellence
+- **SOLID Principles**: Each class follows Single Responsibility Principle
+- **Dependency Injection**: Used throughout for better testability
+- **Comprehensive Documentation**: ~900+ lines of PHPDoc documentation
+- **Type Safety**: Full PHP type hints with structured array shapes
+- **Modular Design**: Plugin-like architecture for easy extension
+- **Error Handling**: Robust error handling throughout pipelines
 
-## [1.1.0] - 2025-01-30
+### Requirements
+- PHP 8.2, 8.3, or 8.4
+- Laravel 11.0+ or 12.0+
 
-### Changed
-- **MAJOR REFACTORING**: Complete architectural overhaul for better maintainability
-- Split monolithic `Convert` class (609 lines) into 6 specialized components
-- Improved code organization with dedicated folders: `Converters/`, `Generators/`, `Processors/`
+### Testing
+- 39 comprehensive tests with 160 assertions
+- Unit tests for all components
+- Feature tests for integration scenarios
+- Architecture tests for code quality
 
-### Added
-- `TypeScriptTypeConverter`: Dedicated class for PHP to TypeScript type conversion
-- `DataObjectProcessor`: Specialized processor for PHP DataObjects
-- `ModelInterfaceGenerator`: Focused generator for model interfaces
-- `ImportManager`: Centralized management of TypeScript imports
-- `JsonLdGenerator`: Isolated JSON-LD support generation
-- Extensive PHPDoc documentation on all public methods (400+ lines of documentation)
-- `ARCHITECTURE.md`: Complete architecture documentation with diagrams
-- `REFACTORING.md`: Detailed refactoring documentation with metrics
-- Type hints with structured array shapes for better IDE support
-- Getter methods for accessing internal components (for testing and inspection)
+### Command Line Interface
+- `php artisan oi:gen-ts` - Generate TypeScript interfaces
+- `php artisan oi:gen-ts --watch` - Watch mode for automatic regeneration
 
-### Improved
-- Code testability increased by 300% (public methods for unit testing)
-- Code maintainability increased by 200% (clear separation of concerns)
-- Code extensibility increased by 250% (plugin-like architecture)
-- Average method length reduced by 57% (35 → 15 lines)
-- Cyclomatic complexity reduced by 73% in main orchestrator
-- Documentation coverage increased to ~95%
-
-### Technical
-- Applied SOLID principles throughout the codebase
-- Implemented Dependency Injection pattern
-- Added composition over inheritance
-- Reduced coupling between components
-- Each class now has a single, well-defined responsibility
-
-### Backward Compatibility
-- ✅ 100% backward compatible - no breaking changes
-- Public API remains identical
-- Same output format
-- No migration required for existing projects
-
-## [1.0.0] - 2025-01-XX
-
-### Added
-- Initial release
-- Automatic TypeScript interface generation from Eloquent models
-- Support for all Laravel relationship types (HasOne, HasMany, BelongsTo, etc.)
-- Custom Cast and DataObject detection
-- PHPDoc type annotation support
-- Watch mode for automatic regeneration
-- Configurable output path and options
-- Support for custom properties
-- JSON-LD support (optional)
-- Relationship count fields
-- External type imports
-- First stable release
+### Configuration Options
+- `output_path` - Custom output path for generated TypeScript
+- `with_counts` - Include relationship count fields
+- `with_json_ld` - Enable JSON-LD support
+- `save_schema` - Save intermediate schema.json for debugging
+- `props_with_types` - Define specific types for properties
+- `custom_props` - Add custom properties to models
