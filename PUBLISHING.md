@@ -1,10 +1,10 @@
 # GitHub Publishing Guide
 
-This guide explains how to publish the OI Laravel TypeScript package on GitHub in your Axo-Conseil organization.
+This guide explains how to publish the OI Laravel TypeScript package on GitHub in your OI Lab organization.
 
 ## Prerequisites
 
-- A GitHub account with access to the `Axo-Conseil` organization
+- A GitHub account with access to the `oi-lab` organization
 - Git installed on your machine
 - Repository creation rights in the organization
 
@@ -19,7 +19,7 @@ git commit -m "Initial commit: OI Laravel TypeScript Generator v1.0.0"
 
 ## Step 2: Create Repository on GitHub
 
-1. Go to GitHub: https://github.com/organizations/Axo-Conseil/repositories/new
+1. Go to GitHub: https://github.com/organizations/oi-lab/repositories/new
 2. Configure the repository:
    - **Repository name**: `oi-laravel-ts`
    - **Description**: "Generate TypeScript interfaces from Laravel Eloquent models"
@@ -29,7 +29,7 @@ git commit -m "Initial commit: OI Laravel TypeScript Generator v1.0.0"
 ## Step 3: Link Local Repository to GitHub Repository
 
 ```bash
-git remote add origin git@github.com:Axo-Conseil/oi-laravel-ts.git
+git remote add origin git@github.com:oi-lab/oi-laravel-ts.git
 git branch -M main
 git push -u origin main
 ```
@@ -68,7 +68,7 @@ If the repository is private, add it to your project's `composer.json`:
     "repositories": [
         {
             "type": "vcs",
-            "url": "git@github.com:Axo-Conseil/oi-laravel-ts.git"
+            "url": "git@github.com:oi-lab/oi-laravel-ts.git"
         }
     ],
     "require": {
@@ -206,8 +206,8 @@ composer require oi-lab/oi-laravel-ts
 
 ## Support and Documentation
 
-- **Repository**: https://github.com/Axo-Conseil/oi-laravel-ts
-- **Issues**: https://github.com/Axo-Conseil/oi-laravel-ts/issues
+- **Repository**: https://github.com/oi-lab/oi-laravel-ts
+- **Issues**: https://github.com/oi-lab/oi-laravel-ts/issues
 - **Documentation**: See README.md
 
 ## Security Notes
