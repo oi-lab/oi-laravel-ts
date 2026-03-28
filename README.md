@@ -1,9 +1,9 @@
 # OI Laravel TypeScript Generator
 
-[![Latest Version](https://img.shields.io/github/v/release/oi-lab/oi-laravel-ts)](https://github.com/oi-lab/oi-laravel-ts/releases)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/oi-lab/oi-laravel-ts.svg)](https://packagist.org/packages/oi-lab/oi-laravel-ts)
+[![Total Downloads](https://img.shields.io/packagist/dt/oi-lab/oi-laravel-ts.svg)](https://packagist.org/packages/oi-lab/oi-laravel-ts)
+[![Tests](https://img.shields.io/github/actions/workflow/status/oi-lab/oi-laravel-ts/tests.yml?label=tests)](https://github.com/oi-lab/oi-laravel-ts/actions)
 [![License](https://img.shields.io/github/license/oi-lab/oi-laravel-ts)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-39%20passed-brightgreen)](TESTING.md)
-[![PHP](https://img.shields.io/badge/php-8.2%20%7C%208.3%20%7C%208.4-blue)](composer.json)
 
 A Laravel package that automatically generates TypeScript interfaces from your Eloquent models, complete with relationships, custom casts, and DataObjects support.
 
@@ -44,34 +44,9 @@ For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 ## Requirements
 
 - PHP 8.2+
-- Laravel 11.0+ or 12.0+
+- Laravel 11.0+, 12.0+, or 13.0+
 
 ## Installation
-
-### Via Composer
-
-If the package is published on Packagist:
-
-```bash
-composer require oi-lab/oi-laravel-ts
-```
-
-### Via GitHub (Private Repository)
-
-Add the repository to your `composer.json`:
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/oi-lab/oi-laravel-ts"
-        }
-    ]
-}
-```
-
-Then require the package:
 
 ```bash
 composer require oi-lab/oi-laravel-ts
