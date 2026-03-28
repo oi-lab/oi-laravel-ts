@@ -2,10 +2,11 @@
 
 use OiLab\OiLaravelTs\Services\Convert;
 use OiLab\OiLaravelTs\Services\Eloquent;
-use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
-use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Event;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Role;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
 
 describe('TypeScript Generation Integration', function () {
     it('generates TypeScript interfaces from models', function () {
@@ -152,5 +153,30 @@ describe('TypeScript Generation Integration', function () {
         $fieldNames = $types->pluck('field')->toArray();
 
         expect($fieldNames)->not->toContain('posts_count');
+    });
+
+    it('does not generate empty field when UPDATED_AT is null', function () {
+        Eloquent::setAdditionalModels([Event::class]);
+
+        $schema = Eloquent::getSchema();
+        $types = $schema['Event']['types'];
+        $fieldNames = $types->pluck('field')->toArray();
+
+        expect($fieldNames)->toContain('created_at')
+            ->and($fieldNames)->not->toContain('updated_at')
+            ->and($fieldNames)->not->toContain(null);
+    });
+
+    it('does not generate empty field line in TypeScript output when UPDATED_AT is null', function () {
+        Eloquent::setAdditionalModels([Event::class]);
+
+        $schema = Eloquent::getSchema();
+        $converter = new Convert($schema, false);
+        $output = $converter->toTypeScript();
+
+        // A null field name would produce "    : string;" (4 spaces + colon with no field name)
+        expect($output)->not->toContain('    : string;')
+            ->and($output)->toContain('created_at: string;')
+            ->and($output)->not->toContain('updated_at');
     });
 });

@@ -220,8 +220,8 @@ class TypeExtractor
         $createdAtColumn = $model->getCreatedAtColumn();
         $updatedAtColumn = $model->getUpdatedAtColumn();
 
-        // Add created_at if not already present
-        if (! isset($customModelProps[$createdAtColumn]) && ! $types->contains('field', $createdAtColumn)) {
+        // Add created_at if not already present (column may be null if const CREATED_AT = null)
+        if ($createdAtColumn !== null && ! isset($customModelProps[$createdAtColumn]) && ! $types->contains('field', $createdAtColumn)) {
             $types->push([
                 'field' => $createdAtColumn,
                 'type' => 'string',
@@ -231,8 +231,8 @@ class TypeExtractor
             ]);
         }
 
-        // Add updated_at if not already present
-        if (! isset($customModelProps[$updatedAtColumn]) && ! $types->contains('field', $updatedAtColumn)) {
+        // Add updated_at if not already present (column may be null if const UPDATED_AT = null)
+        if ($updatedAtColumn !== null && ! isset($customModelProps[$updatedAtColumn]) && ! $types->contains('field', $updatedAtColumn)) {
             $types->push([
                 'field' => $updatedAtColumn,
                 'type' => 'string',
