@@ -5,10 +5,12 @@ namespace OiLab\OiLaravelTs\Tests\Fixtures\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use OiLab\OiLaravelTs\Tests\Fixtures\Casts\MetadataCast;
 
 class Post extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'title',
         'content',

@@ -2,9 +2,14 @@
 
 namespace OiLab\OiLaravelTs\Services\Eloquent;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use ReflectionException;
+use ReflectionMethod;
+use ReflectionNamedType;
+use ReflectionUnionType;
 
 /**
  * Type Extractor
@@ -45,6 +50,11 @@ class TypeExtractor
     private RelationshipResolver $relationshipResolver;
 
     /**
+     * PHP to TypeScript type converter instance.
+     */
+    private PhpToTypeScriptConverter $phpToTsConverter;
+
+    /**
      * Custom property type overrides.
      *
      * @var array<string, array<string, string>|string>
@@ -61,17 +71,20 @@ class TypeExtractor
      *
      * @param  CastTypeResolver  $castTypeResolver  Resolver for custom cast types
      * @param  RelationshipResolver  $relationshipResolver  Resolver for model relationships
+     * @param  PhpToTypeScriptConverter  $phpToTsConverter  PHP to TypeScript type converter
      * @param  array<string, array<string, string>|string>  $customProps  Custom property overrides
      * @param  bool  $withCounts  Whether to include relationship count fields
      */
     public function __construct(
         CastTypeResolver $castTypeResolver,
         RelationshipResolver $relationshipResolver,
+        PhpToTypeScriptConverter $phpToTsConverter,
         array $customProps = [],
         bool $withCounts = true
     ) {
         $this->castTypeResolver = $castTypeResolver;
         $this->relationshipResolver = $relationshipResolver;
+        $this->phpToTsConverter = $phpToTsConverter;
         $this->customProps = $customProps;
         $this->withCounts = $withCounts;
     }
@@ -141,6 +154,14 @@ class TypeExtractor
         if ($model->timestamps) {
             $this->addTimestamps($model, $types, $customModelProps);
         }
+
+        // 3b. Add soft delete timestamp if applicable
+        if (in_array(SoftDeletes::class, class_uses_recursive($model))) {
+            $this->addSoftDeleteTimestamp($model, $types, $customModelProps);
+        }
+
+        // 3c. Add appended attributes
+        $this->addAppends($model, $types, $customModelProps);
 
         // 4. Add relationships
         $this->addRelationships($model, $types);
@@ -241,6 +262,117 @@ class TypeExtractor
                 'isImport' => false,
             ]);
         }
+    }
+
+    /**
+     * Add the soft-delete timestamp field to the types collection.
+     *
+     * Only called when the model uses the SoftDeletes trait.
+     * The deleted_at column is always nullable.
+     *
+     * @param  Model  $model  The model instance
+     * @param  Collection  $types  The types collection to add to
+     * @param  array<string, string>  $customModelProps  Custom props for this model
+     */
+    private function addSoftDeleteTimestamp(Model $model, Collection $types, array $customModelProps): void
+    {
+        $deletedAtColumn = $model->getDeletedAtColumn();
+
+        if ($deletedAtColumn !== null
+            && ! isset($customModelProps[$deletedAtColumn])
+            && ! $types->contains('field', $deletedAtColumn)
+        ) {
+            $types->push([
+                'field' => $deletedAtColumn,
+                'type' => 'string',
+                'relation' => false,
+                'nullable' => true,
+                'isImport' => false,
+            ]);
+        }
+    }
+
+    /**
+     * Add appended attribute fields to the types collection.
+     *
+     * Reads $model->getAppends() and for each appended field, resolves the
+     * TypeScript type by reflecting on the corresponding accessor method.
+     *
+     * @param  Model  $model  The model instance
+     * @param  Collection  $types  The types collection to add to
+     * @param  array<string, string>  $customModelProps  Custom props for this model
+     */
+    private function addAppends(Model $model, Collection $types, array $customModelProps): void
+    {
+        foreach ($model->getAppends() as $appendedField) {
+            if ($types->contains('field', $appendedField) || isset($customModelProps[$appendedField])) {
+                continue;
+            }
+
+            [$tsType, $nullable] = $this->resolveAppendType($model, $appendedField);
+
+            $types->push([
+                'field' => $appendedField,
+                'type' => $tsType,
+                'relation' => false,
+                'nullable' => $nullable,
+                'isImport' => false,
+            ]);
+        }
+    }
+
+    /**
+     * Resolve the TypeScript type for an appended attribute.
+     *
+     * Checks (in order):
+     * 1. Old-style accessor: getFullNameAttribute() — uses reflection return type
+     * 2. New-style accessor: fullName() returning Attribute — defaults to unknown
+     * 3. Falls back to unknown
+     *
+     * @param  Model  $model  The model instance
+     * @param  string  $field  The snake_case append field name
+     * @return array{0: string, 1: bool} [tsType, nullable]
+     */
+    private function resolveAppendType(Model $model, string $field): array
+    {
+        // Old-style: full_name → getFullNameAttribute
+        $oldStyle = 'get'.str_replace(' ', '', ucwords(str_replace('_', ' ', $field))).'Attribute';
+
+        if (method_exists($model, $oldStyle)) {
+            $reflection = new ReflectionMethod($model, $oldStyle);
+            $returnType = $reflection->getReturnType();
+
+            if ($returnType instanceof ReflectionNamedType) {
+                $nullable = $returnType->allowsNull();
+                $tsType = $this->phpToTsConverter->phpTypeToTypeScript($returnType->getName());
+
+                return [$tsType, $nullable];
+            }
+
+            if ($returnType instanceof ReflectionUnionType) {
+                $nullable = $returnType->allowsNull();
+                $nonNull = array_filter($returnType->getTypes(), fn ($t) => $t->getName() !== 'null');
+                $tsTypes = array_map(fn ($t) => $this->phpToTsConverter->phpTypeToTypeScript($t->getName()), $nonNull);
+
+                return [implode(' | ', array_unique($tsTypes)), $nullable];
+            }
+        }
+
+        // New-style: full_name → fullName (camelCase) returning Attribute
+        $newStyle = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $field))));
+
+        if (method_exists($model, $newStyle)) {
+            $reflection = new ReflectionMethod($model, $newStyle);
+            $returnType = $reflection->getReturnType();
+
+            if ($returnType instanceof ReflectionNamedType
+                && is_a($returnType->getName(), Attribute::class, true)
+            ) {
+                return ['unknown', false];
+            }
+        }
+
+        return ['unknown', false];
     }
 
     /**

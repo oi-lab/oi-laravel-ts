@@ -167,6 +167,43 @@ describe('TypeScript Generation Integration', function () {
             ->and($fieldNames)->not->toContain(null);
     });
 
+    it('includes deleted_at for models using SoftDeletes', function () {
+        Eloquent::setAdditionalModels([Post::class]);
+        $schema = Eloquent::getSchema();
+        $fieldNames = $schema['Post']['types']->pluck('field')->toArray();
+
+        expect($fieldNames)->toContain('deleted_at');
+
+        $deletedAt = $schema['Post']['types']->firstWhere('field', 'deleted_at');
+        expect($deletedAt['nullable'])->toBeTrue();
+    });
+
+    it('generates deleted_at as optional nullable string in TypeScript', function () {
+        Eloquent::setAdditionalModels([Post::class]);
+        $schema = Eloquent::getSchema();
+        $output = (new Convert($schema, false))->toTypeScript();
+
+        expect($output)->toContain('deleted_at?: string | null;');
+    });
+
+    it('includes appended attributes in schema', function () {
+        Eloquent::setAdditionalModels([User::class]);
+        $schema = Eloquent::getSchema();
+        $types = $schema['User']['types'];
+
+        $fullName = $types->firstWhere('field', 'full_name');
+        expect($fullName)->not->toBeNull()
+            ->and($fullName['type'])->toBe('string');
+    });
+
+    it('generates appended attributes in TypeScript output', function () {
+        Eloquent::setAdditionalModels([User::class]);
+        $schema = Eloquent::getSchema();
+        $output = (new Convert($schema, false))->toTypeScript();
+
+        expect($output)->toContain('full_name: string;');
+    });
+
     it('does not generate empty field line in TypeScript output when UPDATED_AT is null', function () {
         Eloquent::setAdditionalModels([Event::class]);
 

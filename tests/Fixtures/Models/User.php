@@ -22,6 +22,13 @@ class User extends Model
         'address' => AddressCast::class,
     ];
 
+    protected $appends = ['full_name'];
+
+    public function getFullNameAttribute(): string
+    {
+        return $this->name;
+    }
+
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);

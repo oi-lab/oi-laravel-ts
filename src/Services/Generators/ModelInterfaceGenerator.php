@@ -107,8 +107,10 @@ class ModelInterfaceGenerator
 
         $type = $this->getTypeScriptType($field);
         $optional = ! $this->isRequired($field);
+        $nullable = isset($field['nullable']) && $field['nullable'] === true;
+        $suffix = $nullable ? ' | null' : '';
 
-        return "{$name}".($optional ? '?' : '').": {$type};";
+        return "{$name}".($optional ? '?' : '').": {$type}{$suffix};";
     }
 
     /**
@@ -233,12 +235,8 @@ class ModelInterfaceGenerator
             return false;
         }
 
-        // Specific nullable fields based on database schema
-        $nullableFields = [
-            'description', // Common nullable field
-        ];
-
-        if (in_array($field['field'], $nullableFields)) {
+        // Fields explicitly marked nullable in the schema
+        if (isset($field['nullable']) && $field['nullable'] === true) {
             return false;
         }
 

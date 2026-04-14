@@ -319,6 +319,7 @@ class Eloquent
         $typeExtractor = new TypeExtractor(
             $castTypeResolver,
             $relationshipResolver,
+            $typeConverter,
             self::$customProps,
             self::$withCounts
         );
