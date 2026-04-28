@@ -2,6 +2,7 @@
 
 use OiLab\OiLaravelTs\Services\Convert;
 use OiLab\OiLaravelTs\Services\Eloquent;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Attachment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Event;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
@@ -215,5 +216,70 @@ describe('TypeScript Generation Integration', function () {
         expect($output)->not->toContain('    : string;')
             ->and($output)->toContain('created_at: string;')
             ->and($output)->not->toContain('updated_at');
+    });
+
+    it('resolves MorphOne relationship as singular interface type', function () {
+        Eloquent::setAdditionalModels([Post::class, Attachment::class]);
+        $schema = Eloquent::getSchema();
+
+        $coverRelation = $schema['Post']['types']->firstWhere('field', 'cover');
+
+        expect($coverRelation)->not->toBeNull()
+            ->and($coverRelation['relation'])->toBeTrue()
+            ->and($coverRelation['type'])->toBe('MorphOne');
+    });
+
+    it('generates MorphOne relationship as optional singular interface in TypeScript', function () {
+        Eloquent::setAdditionalModels([Post::class, Attachment::class]);
+        $schema = Eloquent::getSchema();
+        $output = (new Convert($schema, false))->toTypeScript();
+
+        expect($output)->toContain('cover?: IAttachment');
+    });
+
+    it('custom_props overwrite existing auto-detected fields', function () {
+        Eloquent::setAdditionalModels([User::class]);
+        Eloquent::setCustomProps([
+            'User' => [
+                'name' => 'CustomNameType',
+            ],
+        ]);
+
+        $schema = Eloquent::getSchema();
+        $types = $schema['User']['types'];
+
+        $nameFields = $types->where('field', 'name');
+        expect($nameFields->count())->toBe(1)
+            ->and($nameFields->first()['type'])->toBe('CustomNameType');
+    });
+
+    it('custom_props overwrite existing relationship fields', function () {
+        Eloquent::setAdditionalModels([User::class]);
+        Eloquent::setCustomProps([
+            'User' => [
+                'posts' => 'IPost[]',
+            ],
+        ]);
+
+        $schema = Eloquent::getSchema();
+        $types = $schema['User']['types'];
+
+        $postsFields = $types->where('field', 'posts');
+        expect($postsFields->count())->toBe(1)
+            ->and($postsFields->first()['type'])->toBe('IPost[]')
+            ->and($postsFields->first()['relation'])->toBeFalse();
+    });
+
+    it('global custom_props overwrite existing fields on all models', function () {
+        Eloquent::setAdditionalModels([User::class, Post::class]);
+        Eloquent::setCustomProps([
+            '?name' => 'TranslatableString',
+        ]);
+
+        $schema = Eloquent::getSchema();
+
+        $userNameFields = $schema['User']['types']->where('field', 'name');
+        expect($userNameFields->count())->toBe(1)
+            ->and($userNameFields->first()['type'])->toBe('TranslatableString');
     });
 });

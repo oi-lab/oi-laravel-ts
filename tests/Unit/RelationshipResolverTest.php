@@ -48,12 +48,13 @@ describe('RelationshipResolver', function () {
             $post = new Post;
             $relationships = $this->resolver->resolveRelationships($post);
 
-            expect($relationships)->toHaveCount(2);
+            expect($relationships)->toHaveCount(3);
 
             $relationNames = collect($relationships)->pluck('name')->toArray();
 
             expect($relationNames)->toContain('user')
-                ->and($relationNames)->toContain('comments');
+                ->and($relationNames)->toContain('comments')
+                ->and($relationNames)->toContain('cover');
         });
 
         it('resolves relationships for model with multiple BelongsTo', function () {

@@ -283,7 +283,7 @@ class TypeScriptTypeConverter
      * Convert Laravel relationship type to TypeScript type.
      *
      * Maps relationship types to their TypeScript equivalents:
-     * - HasOne/BelongsTo -> IModel
+     * - HasOne/BelongsTo/MorphOne -> IModel
      * - HasMany/BelongsToMany/MorphToMany/MorphMany -> IModel[]
      *
      * @param  string  $relationType  The Laravel relationship type
@@ -295,7 +295,7 @@ class TypeScriptTypeConverter
         $modelName = class_basename($relatedModel);
 
         return match ($relationType) {
-            'HasOne', 'BelongsTo' => "I{$modelName}",
+            'HasOne', 'BelongsTo', 'MorphOne' => "I{$modelName}",
             'HasMany', 'BelongsToMany', 'MorphToMany', 'MorphMany' => "I{$modelName}[]",
             default => 'never',
         };

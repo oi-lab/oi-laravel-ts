@@ -5,6 +5,7 @@ namespace OiLab\OiLaravelTs\Tests\Fixtures\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OiLab\OiLaravelTs\Tests\Fixtures\Casts\MetadataCast;
 
@@ -31,5 +32,11 @@ class Post extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
+    }
+
+    /** @return MorphOne<Attachment, $this> */
+    public function cover(): MorphOne
+    {
+        return $this->morphOne(Attachment::class, 'attachable');
     }
 }

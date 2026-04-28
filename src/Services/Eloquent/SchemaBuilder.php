@@ -151,14 +151,13 @@ class SchemaBuilder
             $field = str_replace('?', '', $key);
 
             foreach ($schema as &$data) {
-                if (! $data['types']->contains('field', $field)) {
-                    $data['types']->push([
-                        'field' => $field,
-                        'type' => $value,
-                        'relation' => false,
-                        'isImport' => is_string($value) && str_starts_with($value, '@/'),
-                    ]);
-                }
+                $data['types'] = $data['types']->reject(fn ($type) => $type['field'] === $field)->values();
+                $data['types']->push([
+                    'field' => $field,
+                    'type' => $value,
+                    'relation' => false,
+                    'isImport' => is_string($value) && str_starts_with($value, '@/'),
+                ]);
             }
         }
     }
@@ -184,16 +183,15 @@ class SchemaBuilder
                 continue;
             }
 
-            // Apply each custom prop for this model
+            // Apply each custom prop for this model, overwriting existing fields
             foreach ($value as $field => $type) {
-                if (! $schema[$key]['types']->contains('field', $field)) {
-                    $schema[$key]['types']->push([
-                        'field' => $field,
-                        'type' => $type,
-                        'relation' => false,
-                        'isImport' => is_string($type) && str_starts_with($type, '@/'),
-                    ]);
-                }
+                $schema[$key]['types'] = $schema[$key]['types']->reject(fn ($t) => $t['field'] === $field)->values();
+                $schema[$key]['types']->push([
+                    'field' => $field,
+                    'type' => $type,
+                    'relation' => false,
+                    'isImport' => is_string($type) && str_starts_with($type, '@/'),
+                ]);
             }
         }
     }
