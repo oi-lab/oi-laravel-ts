@@ -178,6 +178,16 @@ class ModelInterfaceGenerator
 
         // Handle relationship types
         if ($field['relation']) {
+            // BelongsToMany / MorphToMany using a custom Pivot model: emit an
+            // intersection so the pivot data is typed via the pivot's interface.
+            if (isset($field['pivot']['class']) && $this->hasCustomPivotClass($field['pivot']['class'])) {
+                $modelName = class_basename($field['model']);
+                $pivotInterface = 'I'.class_basename($field['pivot']['class']);
+                $accessor = $field['pivot']['accessor'] ?? 'pivot';
+
+                return "(I{$modelName} & { {$accessor}?: {$pivotInterface} })[]";
+            }
+
             return $this->typeConverter->convertRelationType(
                 $field['type'],
                 $field['model']
@@ -186,6 +196,23 @@ class ModelInterfaceGenerator
 
         // Handle column types
         return $this->typeConverter->convertColumnType($field['type']);
+    }
+
+    /**
+     * Check whether the relation uses a custom Pivot model (via ->using()).
+     *
+     * The default Illuminate Pivot/MorphPivot classes do not have a generated
+     * TypeScript interface, so we should not reference them in the output.
+     *
+     * @param  class-string  $pivotClass  The pivot class on the relation
+     * @return bool True if a custom Pivot model is in use
+     */
+    private function hasCustomPivotClass(string $pivotClass): bool
+    {
+        return ! in_array($pivotClass, [
+            \Illuminate\Database\Eloquent\Relations\Pivot::class,
+            \Illuminate\Database\Eloquent\Relations\MorphPivot::class,
+        ], true);
     }
 
     /**

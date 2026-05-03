@@ -5,6 +5,7 @@ use OiLab\OiLaravelTs\Services\Eloquent;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Attachment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Event;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Membership;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Role;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
@@ -268,6 +269,23 @@ describe('TypeScript Generation Integration', function () {
         expect($postsFields->count())->toBe(1)
             ->and($postsFields->first()['type'])->toBe('IPost[]')
             ->and($postsFields->first()['relation'])->toBeFalse();
+    });
+
+    it('emits intersection type with pivot interface for BelongsToMany using a custom Pivot model', function () {
+        Eloquent::setAdditionalModels([User::class, Role::class, Membership::class]);
+        $schema = Eloquent::getSchema();
+        $output = (new Convert($schema, false))->toTypeScript();
+
+        expect($output)->toContain('memberships?: (IRole & { pivot?: IMembership })[]');
+    });
+
+    it('keeps plain array type for BelongsToMany without custom Pivot model', function () {
+        Eloquent::setAdditionalModels([User::class, Role::class]);
+        $schema = Eloquent::getSchema();
+        $output = (new Convert($schema, false))->toTypeScript();
+
+        expect($output)->toContain('roles?: IRole[]')
+            ->and($output)->not->toContain('IPivot');
     });
 
     it('global custom_props overwrite existing fields on all models', function () {

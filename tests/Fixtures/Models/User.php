@@ -39,4 +39,11 @@ class User extends Model
         return $this->belongsToMany(Role::class)
             ->withPivot(['assigned_at', 'assigned_by']);
     }
+
+    public function memberships(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'memberships')
+            ->using(Membership::class)
+            ->withPivot(['assigned_at', 'assigned_by']);
+    }
 }
