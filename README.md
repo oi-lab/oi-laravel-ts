@@ -1,3 +1,5 @@
+<img src="./assets/github-preview.png" alt="OI Laravel TypeScript Generator" width="100%" />
+
 # OI Laravel TypeScript Generator
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/oi-lab/oi-laravel-ts.svg)](https://packagist.org/packages/oi-lab/oi-laravel-ts)
