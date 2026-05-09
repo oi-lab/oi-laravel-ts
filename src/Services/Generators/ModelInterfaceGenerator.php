@@ -67,6 +67,10 @@ class ModelInterfaceGenerator
         $properties = [];
 
         foreach ($model['types'] as $field) {
+            if (empty($field['field'])) {
+                continue;
+            }
+
             $properties[] = $this->convertField($field);
         }
 
