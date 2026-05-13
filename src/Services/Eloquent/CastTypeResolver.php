@@ -3,6 +3,7 @@
 namespace OiLab\OiLaravelTs\Services\Eloquent;
 
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
+use OiLab\OiLaravelTs\Services\DataObjectResolver;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -41,14 +42,18 @@ class CastTypeResolver
      */
     private DataObjectAnalyzer $dataObjectAnalyzer;
 
+    private DataObjectResolver $dataObjectResolver;
+
     /**
      * Create a new cast type resolver instance.
      *
      * @param  DataObjectAnalyzer  $dataObjectAnalyzer  The analyzer to use for DataObject detection
+     * @param  DataObjectResolver|null  $dataObjectResolver  Resolver used to locate DataObject classes
      */
-    public function __construct(DataObjectAnalyzer $dataObjectAnalyzer)
+    public function __construct(DataObjectAnalyzer $dataObjectAnalyzer, ?DataObjectResolver $dataObjectResolver = null)
     {
         $this->dataObjectAnalyzer = $dataObjectAnalyzer;
+        $this->dataObjectResolver = $dataObjectResolver ?? new DataObjectResolver;
     }
 
     /**
@@ -252,7 +257,7 @@ class CastTypeResolver
      *
      * Attempts to resolve relative class names by checking:
      * 1. The same namespace as the cast class
-     * 2. The App\DataObjects namespace
+     * 2. Each namespace configured in `oi-laravel-ts.dataobject_namespaces`
      *
      * @param  string  $className  The short or relative class name
      * @param  ReflectionClass  $contextClass  The class providing namespace context
@@ -273,10 +278,10 @@ class CastTypeResolver
             return $possibleClass;
         }
 
-        // Try App\DataObjects namespace
-        $possibleClass = 'App\\DataObjects\\'.$className;
-        if (class_exists($possibleClass)) {
-            return $possibleClass;
+        // Try configured DataObject namespaces
+        $resolved = $this->dataObjectResolver->resolveDataObjectClass($className);
+        if ($resolved !== null) {
+            return $resolved;
         }
 
         return $className;

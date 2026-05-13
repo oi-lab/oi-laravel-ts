@@ -59,6 +59,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | DataObject Namespaces
+    |--------------------------------------------------------------------------
+    |
+    | Namespaces to search when resolving short DataObject / ValueObject class
+    | names (e.g. references found in PHPDoc like `array<int, Address>`).
+    |
+    | A class is considered a DataObject when it exposes both `fromArray()` and
+    | `toArray()` methods. The list is iterated in order; the first match wins.
+    |
+    */
+    'dataobject_namespaces' => [
+        'App\\DataObjects',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Custom Props
     |--------------------------------------------------------------------------
     |

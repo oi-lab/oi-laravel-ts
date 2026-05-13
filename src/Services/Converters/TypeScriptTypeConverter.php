@@ -2,6 +2,8 @@
 
 namespace OiLab\OiLaravelTs\Services\Converters;
 
+use OiLab\OiLaravelTs\Services\DataObjectResolver;
+
 /**
  * TypeScript Type Converter
  *
@@ -10,6 +12,13 @@ namespace OiLab\OiLaravelTs\Services\Converters;
  */
 class TypeScriptTypeConverter
 {
+    private DataObjectResolver $dataObjectResolver;
+
+    public function __construct(?DataObjectResolver $dataObjectResolver = null)
+    {
+        $this->dataObjectResolver = $dataObjectResolver ?? new DataObjectResolver;
+    }
+
     /**
      * Convert PHPDoc type annotation to TypeScript type.
      *
@@ -131,8 +140,8 @@ class TypeScriptTypeConverter
         // Handle simple array<Type> -> Type[]
         if (preg_match('/^array<([^>]+)>$/', $phpDocType, $match)) {
             $itemType = trim($match[1]);
-            if (class_exists("App\\DataObjects\\{$itemType}")) {
-                return "I{$itemType}[]";
+            if ($this->dataObjectResolver->resolveDataObjectClass($itemType) !== null) {
+                return 'I'.$this->shortName($itemType).'[]';
             }
 
             return $this->getSimpleTypeScriptType($itemType).'[]';
@@ -172,8 +181,8 @@ class TypeScriptTypeConverter
             return 'Record<string, '.implode(' | ', $tsUnionParts).'>';
         }
 
-        if (class_exists("App\\DataObjects\\{$valueType}")) {
-            return "Record<string, I{$valueType}>";
+        if ($this->dataObjectResolver->resolveDataObjectClass($valueType) !== null) {
+            return 'Record<string, I'.$this->shortName($valueType).'>';
         }
 
         if ($valueType === 'mixed') {
@@ -205,8 +214,8 @@ class TypeScriptTypeConverter
                 $part = trim($part);
                 if (preg_match('/^array<string,\s*mixed>$/', $part)) {
                     $tsUnionParts[] = 'Record<string, unknown>';
-                } elseif (class_exists("App\\DataObjects\\{$part}")) {
-                    $tsUnionParts[] = "I{$part}";
+                } elseif ($this->dataObjectResolver->resolveDataObjectClass($part) !== null) {
+                    $tsUnionParts[] = 'I'.$this->shortName($part);
                 } else {
                     $tsUnionParts[] = $this->getSimpleTypeScriptType($part);
                 }
@@ -215,8 +224,8 @@ class TypeScriptTypeConverter
             return '('.implode(' | ', $tsUnionParts).')[]';
         }
 
-        if (class_exists("App\\DataObjects\\{$itemType}")) {
-            return "I{$itemType}[]";
+        if ($this->dataObjectResolver->resolveDataObjectClass($itemType) !== null) {
+            return 'I'.$this->shortName($itemType).'[]';
         }
 
         return $this->getSimpleTypeScriptType($itemType).'[]';
@@ -250,8 +259,38 @@ class TypeScriptTypeConverter
             'array' => 'unknown[]',
             'mixed' => 'unknown',
             'object' => 'Record<string, unknown>',
-            default => 'unknown',
+            default => $this->resolveClassReferenceType($phpType),
         };
+    }
+
+    /**
+     * Map a PHP class reference (FQCN or short name) to a TypeScript type.
+     *
+     * Returns `I{ShortName}` when the reference points to a DataObject from any
+     * namespace, otherwise falls back to `unknown`.
+     */
+    private function resolveClassReferenceType(string $phpType): string
+    {
+        $fqcn = $this->dataObjectResolver->resolveDataObjectClass($phpType);
+
+        if ($fqcn !== null) {
+            return 'I'.$this->shortName($fqcn);
+        }
+
+        return 'unknown';
+    }
+
+    private function shortName(string $className): string
+    {
+        $className = ltrim($className, '\\');
+        $position = strrpos($className, '\\');
+
+        return $position === false ? $className : substr($className, $position + 1);
+    }
+
+    public function getDataObjectResolver(): DataObjectResolver
+    {
+        return $this->dataObjectResolver;
     }
 
     /**

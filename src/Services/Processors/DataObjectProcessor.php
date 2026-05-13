@@ -3,6 +3,7 @@
 namespace OiLab\OiLaravelTs\Services\Processors;
 
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
+use OiLab\OiLaravelTs\Services\DataObjectResolver;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -35,14 +36,20 @@ class DataObjectProcessor
      */
     private string $output = '';
 
+    private DataObjectResolver $dataObjectResolver;
+
     /**
      * Constructor.
      *
      * @param  TypeScriptTypeConverter  $typeConverter  The type converter instance
+     * @param  DataObjectResolver|null  $dataObjectResolver  Resolver used to locate DataObject classes
      */
     public function __construct(
-        private readonly TypeScriptTypeConverter $typeConverter
-    ) {}
+        private readonly TypeScriptTypeConverter $typeConverter,
+        ?DataObjectResolver $dataObjectResolver = null,
+    ) {
+        $this->dataObjectResolver = $dataObjectResolver ?? new DataObjectResolver;
+    }
 
     /**
      * Process a DataObject field and generate its TypeScript interface.
@@ -105,10 +112,14 @@ class DataObjectProcessor
         // Search for patterns like IJsonLdNode, IJsonLdNode[], etc.
         if (preg_match_all('/I([A-Z][a-zA-Z0-9]+)/', $tsType, $matches)) {
             foreach ($matches[1] as $dataObjectName) {
-                $dataObjectClass = "App\\DataObjects\\{$dataObjectName}";
-                if (class_exists($dataObjectClass) &&
-                    ! in_array($dataObjectName, $this->processedDataObjects) &&
-                    ! in_array($dataObjectClass, $this->pendingDataObjects)) {
+                $dataObjectClass = $this->dataObjectResolver->resolveDataObjectClass($dataObjectName);
+
+                if ($dataObjectClass === null) {
+                    continue;
+                }
+
+                if (! in_array($dataObjectName, $this->processedDataObjects, true) &&
+                    ! in_array($dataObjectClass, $this->pendingDataObjects, true)) {
                     $this->pendingDataObjects[] = $dataObjectClass;
                 }
             }
