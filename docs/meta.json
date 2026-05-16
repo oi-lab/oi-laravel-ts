@@ -1,0 +1,7 @@
+{
+    "type": "package",
+    "name": "oi-lab/oi-laravel-ts",
+    "title": "OI Laravel TypeScript",
+    "description": "Generate TypeScript interfaces from Eloquent models",
+    "order": 10
+}
