@@ -96,6 +96,10 @@ return [
     // Enable JSON-LD support
     'with_json_ld' => false,
 
+    // Follow relationships to generate interfaces for referenced models
+    // (incl. models attached through traits, e.g. spatie/laravel-permission)
+    'discover_related_models' => true,
+
     // Save intermediate schema.json for debugging
     'save_schema' => false,
 

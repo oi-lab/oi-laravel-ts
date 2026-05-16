@@ -34,6 +34,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Discover Related Models
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, any model targeted by a relationship is added to the schema
+    | even if it lives outside app/Models. This ensures interfaces are generated
+    | for models attached through traits (e.g. spatie/laravel-permission's Role
+    | reachable via the HasRoles trait), so generated relationship types such as
+    | `roles?: IRole[]` always reference a defined interface.
+    |
+    */
+    'discover_related_models' => true,
+
+    /*
+    |--------------------------------------------------------------------------
     | Save Schema
     |--------------------------------------------------------------------------
     |

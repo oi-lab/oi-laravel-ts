@@ -77,6 +77,7 @@ class GenerateTypescriptCommand extends Command
 
         Eloquent::setWithCounts($config['with_counts']);
         Eloquent::setCustomProps($config['custom_props']);
+        Eloquent::setDiscoverRelatedModels($config['discover_related_models'] ?? true);
 
         $schema = Eloquent::getSchema();
 

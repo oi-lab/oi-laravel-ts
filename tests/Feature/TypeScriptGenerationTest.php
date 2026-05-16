@@ -300,4 +300,72 @@ describe('TypeScript Generation Integration', function () {
         expect($userNameFields->count())->toBe(1)
             ->and($userNameFields->first()['type'])->toBe('TranslatableString');
     });
+
+    it('discovers models referenced by relationships even when not listed explicitly', function () {
+        Eloquent::setCustomProps([]);
+        Eloquent::setDiscoverRelatedModels(true);
+        Eloquent::setAdditionalModels([User::class]);
+
+        $schema = Eloquent::getSchema();
+
+        // User reaches these models through relationships; none were listed explicitly.
+        expect($schema)->toHaveKey('User')
+            ->and($schema)->toHaveKey('Role')
+            ->and($schema)->toHaveKey('Post')
+            ->and($schema)->toHaveKey('Membership')
+            ->and($schema)->toHaveKey('Comment')
+            ->and($schema)->toHaveKey('Attachment');
+    });
+
+    it('generates interfaces for relationship-provided models in TypeScript output', function () {
+        Eloquent::setCustomProps([]);
+        Eloquent::setDiscoverRelatedModels(true);
+        Eloquent::setAdditionalModels([User::class]);
+
+        $output = (new Convert(Eloquent::getSchema(), false))->toTypeScript();
+
+        // The relationship type IRole[] now has a matching interface definition.
+        expect($output)->toContain('roles?: IRole[]')
+            ->and($output)->toContain('export interface IRole');
+    });
+
+    it('discovers custom Pivot models referenced through using()', function () {
+        Eloquent::setCustomProps([]);
+        Eloquent::setDiscoverRelatedModels(true);
+        Eloquent::setAdditionalModels([User::class]);
+
+        $output = (new Convert(Eloquent::getSchema(), false))->toTypeScript();
+
+        expect($output)->toContain('memberships?: (IRole & { pivot?: IMembership })[]')
+            ->and($output)->toContain('export interface IMembership');
+    });
+
+    it('handles relationship cycles without infinite recursion', function () {
+        Eloquent::setCustomProps([]);
+        Eloquent::setDiscoverRelatedModels(true);
+        // Comment -> Post -> User -> Post forms a cycle; discovery must terminate.
+        Eloquent::setAdditionalModels([Comment::class]);
+
+        $schema = Eloquent::getSchema();
+
+        expect($schema)->toHaveKey('Comment')
+            ->and($schema)->toHaveKey('Post')
+            ->and($schema)->toHaveKey('User')
+            ->and($schema['User']['types'])->toBeInstanceOf(\Illuminate\Support\Collection::class);
+    });
+
+    it('does not discover related models when discovery is disabled', function () {
+        Eloquent::setCustomProps([]);
+        Eloquent::setAdditionalModels([User::class]);
+        Eloquent::setDiscoverRelatedModels(false);
+
+        $schema = Eloquent::getSchema();
+
+        expect($schema)->toHaveKey('User')
+            ->and($schema)->not->toHaveKey('Role')
+            ->and($schema)->not->toHaveKey('Post');
+
+        // Restore the default so later tests are unaffected.
+        Eloquent::setDiscoverRelatedModels(true);
+    });
 });

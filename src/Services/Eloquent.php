@@ -61,6 +61,11 @@ class Eloquent
     private static bool $withCounts = true;
 
     /**
+     * Whether to recursively discover models referenced by relationships.
+     */
+    private static bool $discoverRelatedModels = true;
+
+    /**
      * Custom property type overrides.
      *
      * Supports model-specific and global (with ?) overrides.
@@ -149,6 +154,31 @@ class Eloquent
     public static function setWithCounts(bool $withCounts): void
     {
         self::$withCounts = $withCounts;
+    }
+
+    /**
+     * Set whether to recursively discover models referenced by relationships.
+     *
+     * When enabled (default), any model targeted by a relationship is added to
+     * the schema even if it lives outside app/Models and was not listed via
+     * setAdditionalModels(). This ensures interfaces are generated for models
+     * attached through traits, such as spatie/laravel-permission's Role and
+     * Permission models reachable from the HasRoles trait.
+     *
+     * @param  bool  $discoverRelatedModels  Whether to follow relationships
+     *
+     * @example
+     * ```php
+     * // Default: follow relationships and generate IRole, IPermission, ...
+     * Eloquent::setDiscoverRelatedModels(true);
+     *
+     * // Opt out: only generate interfaces for explicitly known models
+     * Eloquent::setDiscoverRelatedModels(false);
+     * ```
+     */
+    public static function setDiscoverRelatedModels(bool $discoverRelatedModels): void
+    {
+        self::$discoverRelatedModels = $discoverRelatedModels;
     }
 
     /**
@@ -297,6 +327,7 @@ class Eloquent
         $builder = new SchemaBuilder($discovery, $typeExtractor);
         $builder->setCustomProps(self::$customProps);
         $builder->setWithCounts(self::$withCounts);
+        $builder->setDiscoverRelatedModels(self::$discoverRelatedModels);
 
         return $builder;
     }
