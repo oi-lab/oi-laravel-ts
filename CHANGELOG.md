@@ -2,6 +2,12 @@
 
 All notable changes to `oi-laravel-ts` will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Casts returning an array of PHP primitives (e.g. `@return array<int, int>`) now resolve to native TypeScript array types (`number[]`, `string[]`, `boolean[]`) instead of `never`.
+- `TypeScriptTypeConverter::convertColumnType()` now passes native TypeScript types (`[]`, `|`, `Record<...>`) through unchanged, allowing `custom_props` config entries to declare TypeScript types directly.
+
 ## [1.0.0] - 2025-01-30
 
 Initial release of OI Laravel TypeScript Generator - a comprehensive Laravel package that automatically generates TypeScript interfaces from Eloquent models.

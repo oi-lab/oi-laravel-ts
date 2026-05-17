@@ -308,6 +308,14 @@ class TypeScriptTypeConverter
      */
     public function convertColumnType(string $columnType): string
     {
+        // Pass through native TypeScript types (arrays, unions, records) untouched.
+        // This lets custom_props and resolved casts declare TS types directly.
+        if (str_contains($columnType, '[]')
+            || str_contains($columnType, '|')
+            || str_starts_with($columnType, 'Record<')) {
+            return $columnType;
+        }
+
         return match ($columnType) {
             'string', 'text', 'char', 'uuid' => 'string',
             'integer', 'bigInteger', 'number', 'decimal:6', 'float' => 'number',

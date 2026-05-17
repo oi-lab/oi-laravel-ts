@@ -5,6 +5,7 @@ use OiLab\OiLaravelTs\Services\Eloquent\DataObjectAnalyzer;
 use OiLab\OiLaravelTs\Services\Eloquent\PhpToTypeScriptConverter;
 use OiLab\OiLaravelTs\Tests\Fixtures\Casts\AddressCast;
 use OiLab\OiLaravelTs\Tests\Fixtures\Casts\MetadataCast;
+use OiLab\OiLaravelTs\Tests\Fixtures\Casts\TagIdsCast;
 
 describe('CastTypeResolver', function () {
     beforeEach(function () {
@@ -35,6 +36,17 @@ describe('CastTypeResolver', function () {
                 ->and($result['isDataObject'])->toBeTrue()
                 ->and($result['properties'])->toBeArray()
                 ->and($result['properties'])->toHaveCount(3);
+        });
+
+        it('resolves an array of primitives to a native TypeScript array type', function () {
+            $result = $this->resolver->resolve(TagIdsCast::class, 'tag_ids');
+
+            expect($result)->not->toBeNull()
+                ->and($result['field'])->toBe('tag_ids')
+                ->and($result['type'])->toBe('number[]')
+                ->and($result['relation'])->toBeFalse()
+                ->and($result['isDataObject'])->toBeFalse()
+                ->and($result['isArray'])->toBeTrue();
         });
 
         it('returns null for non-cast class', function () {

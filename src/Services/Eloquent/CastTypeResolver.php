@@ -187,7 +187,9 @@ class CastTypeResolver
      * Resolve an array return type to TypeScript type information.
      *
      * Analyzes PHPDoc comments to determine the array item type.
-     * Looks for patterns like @return array<int, DataObject>.
+     * Looks for patterns like @return array<int, DataObject>. Arrays of PHP
+     * primitives (int, string, bool, ...) resolve to native TypeScript array
+     * types such as `number[]` instead of a DataObject reference.
      *
      * @param  \ReflectionMethod  $getMethod  The get() method to analyze
      * @param  ReflectionClass  $reflection  The cast class reflection
@@ -199,8 +201,8 @@ class CastTypeResolver
      *   relation: bool,
      *   isDataObject: bool,
      *   isArray: bool,
-     *   dataObjectClass: class-string,
-     *   properties: array,
+     *   dataObjectClass?: class-string,
+     *   properties?: array,
      *   nullable: bool
      * }|null Type information, or null if array item type cannot be determined
      *
@@ -223,6 +225,19 @@ class CastTypeResolver
         }
 
         $arrayItemType = trim($matches[1]);
+
+        // Arrays of PHP primitives map directly to native TypeScript array types.
+        $primitiveType = $this->resolvePrimitiveArrayType($arrayItemType);
+        if ($primitiveType !== null) {
+            return [
+                'field' => $columnName,
+                'type' => $primitiveType,
+                'relation' => false,
+                'isDataObject' => false,
+                'isArray' => true,
+                'nullable' => $returnType->allowsNull(),
+            ];
+        }
 
         // Resolve the full namespace if needed
         $arrayItemType = $this->resolveFullClassName($arrayItemType, $reflection);
@@ -250,6 +265,22 @@ class CastTypeResolver
             'properties' => $properties,
             'nullable' => $returnType->allowsNull(),
         ];
+    }
+
+    /**
+     * Map an array item type to its native TypeScript array type when it is a PHP primitive.
+     *
+     * @param  string  $itemType  The array item type extracted from PHPDoc
+     * @return string|null The TypeScript array type (e.g. "number[]"), or null when not a primitive
+     */
+    private function resolvePrimitiveArrayType(string $itemType): ?string
+    {
+        return match (strtolower($itemType)) {
+            'int', 'integer', 'float', 'double' => 'number[]',
+            'string' => 'string[]',
+            'bool', 'boolean' => 'boolean[]',
+            default => null,
+        };
     }
 
     /**
