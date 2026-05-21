@@ -43,6 +43,14 @@
             ]
         }
     },
+    "scripts": {
+        "sync-ai-skills": [
+            "@php scripts/sync-ai-skills.php"
+        ],
+        "post-autoload-dump": [
+            "@php scripts/sync-ai-skills.php"
+        ]
+    },
     "config": {
         "sort-packages": true,
         "allow-plugins": {
