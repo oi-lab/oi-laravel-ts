@@ -14,6 +14,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Output Mode
+    |--------------------------------------------------------------------------
+    |
+    | How the generated interfaces are written:
+    | - 'single'   : one concatenated file at `output_path` (default).
+    | - 'multiple' : one kebab-cased file per interface plus an `index.ts`
+    |                barrel, written to `output_dir`. Each file imports exactly
+    |                the interfaces it references.
+    |
+    */
+    'output_mode' => 'single',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Output Directory
+    |--------------------------------------------------------------------------
+    |
+    | Target directory for the generated files when `output_mode` is 'multiple'.
+    | Ignored in 'single' mode (which uses `output_path`).
+    |
+    */
+    'output_dir' => resource_path('js/types'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Include Relationship Counts
     |--------------------------------------------------------------------------
     |
@@ -86,6 +111,21 @@ return [
     'dataobject_namespaces' => [
         'App\\DataObjects',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Discover All DataObjects
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, every DataObject found under `dataobject_namespaces` is
+    | emitted as an `I{Name}` interface, even if it is never referenced by a
+    | model cast. Nested DataObjects are resolved automatically.
+    |
+    | Two distinct classes resolving to the same short name throw a
+    | DataObjectNameCollisionException. Defaults to false (no behavior change).
+    |
+    */
+    'discover_all_dataobjects' => false,
 
     /*
     |--------------------------------------------------------------------------

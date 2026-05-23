@@ -19,7 +19,13 @@ The command stays running, watching for file changes in your models directory. W
 
 ## How it works
 
-The watcher monitors all `.php` files in `app/Models` (and any additional paths configured for model discovery). When any file is modified, the full generation pipeline runs again.
+The watcher monitors all `.php` files in `app/Models`, recursively including
+sub-directories. When any file is modified, the full generation pipeline runs
+again.
+
+When `discover_all_dataobjects` is enabled, the directories backing your
+`dataobject_namespaces` are watched too, so editing a standalone DataObject also
+triggers regeneration.
 
 ## Typical workflow
 

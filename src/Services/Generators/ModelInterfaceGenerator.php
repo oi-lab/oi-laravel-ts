@@ -20,9 +20,11 @@ class ModelInterfaceGenerator
     private array $processedTypes = [];
 
     /**
-     * The TypeScript output being built.
+     * Generated interface units, in processing order.
+     *
+     * @var array<int, InterfaceUnit>
      */
-    private string $output = '';
+    private array $units = [];
 
     /**
      * Constructor.
@@ -74,9 +76,11 @@ class ModelInterfaceGenerator
             $properties[] = $this->convertField($field);
         }
 
-        $this->output .= "export interface {$interfaceName} {\n";
-        $this->output .= '    '.implode("\n    ", $properties)."\n";
-        $this->output .= "}\n\n";
+        $body = "export interface {$interfaceName} {\n";
+        $body .= '    '.implode("\n    ", $properties)."\n";
+        $body .= '}';
+
+        $this->units[] = InterfaceUnit::make($interfaceName, $body);
     }
 
     /**
@@ -282,17 +286,33 @@ class ModelInterfaceGenerator
      */
     public function getOutput(): string
     {
-        return $this->output;
+        $output = '';
+
+        foreach ($this->units as $unit) {
+            $output .= $unit->body."\n\n";
+        }
+
+        return $output;
+    }
+
+    /**
+     * Get the generated interface units.
+     *
+     * @return array<int, InterfaceUnit>
+     */
+    public function getUnits(): array
+    {
+        return $this->units;
     }
 
     /**
      * Clear the generator state.
      *
-     * Resets all internal state including processed types list and output.
+     * Resets all internal state including processed types list and units.
      */
     public function reset(): void
     {
         $this->processedTypes = [];
-        $this->output = '';
+        $this->units = [];
     }
 }

@@ -41,11 +41,11 @@ class GenerateTypescriptCommand extends Command
     {
         $this->info('Watching for changes in Models directory...');
 
-        $modelsPath = app_path('Models');
-        $lastHash = $this->getDirectoryHash($modelsPath);
+        $paths = $this->watchedPaths();
+        $lastHash = $this->getWatchedHash($paths);
 
         while (true) {
-            $newHash = $this->getDirectoryHash($modelsPath);
+            $newHash = $this->getWatchedHash($paths);
 
             if ($newHash !== $lastHash) {
                 $this->generate();
@@ -56,19 +56,66 @@ class GenerateTypescriptCommand extends Command
         }
     }
 
-    private function getDirectoryHash(string $dir): string
+    /**
+     * Directories to watch for changes. Always includes the Models directory;
+     * when DataObject discovery is enabled, the configured namespaces are added
+     * so editing a standalone DataObject also triggers regeneration.
+     *
+     * @return array<int, string>
+     */
+    private function watchedPaths(): array
     {
-        $files = scandir($dir);
-        $hash = '';
+        $config = config('oi-laravel-ts');
+        $paths = [app_path('Models')];
 
-        foreach ($files as $file) {
-            if ($file !== '.' && $file !== '..') {
-                $path = $dir.'/'.$file;
-                $hash .= md5_file($path);
+        if ($config['discover_all_dataobjects'] ?? false) {
+            $resolver = new \OiLab\OiLaravelTs\Services\DataObjectResolver(
+                $config['dataobject_namespaces'] ?? null
+            );
+
+            foreach ($resolver->resolveNamespaceDirectories() as $directory) {
+                $paths[] = $directory;
             }
         }
 
+        return $paths;
+    }
+
+    /**
+     * @param  array<int, string>  $paths
+     */
+    private function getWatchedHash(array $paths): string
+    {
+        $hash = '';
+
+        foreach ($paths as $path) {
+            $hash .= $this->getDirectoryHash($path);
+        }
+
         return md5($hash);
+    }
+
+    private function getDirectoryHash(string $dir): string
+    {
+        if (! is_dir($dir)) {
+            return '';
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        $hashes = [];
+
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                $hashes[$file->getPathname()] = md5_file($file->getPathname());
+            }
+        }
+
+        ksort($hashes);
+
+        return md5(implode('', $hashes));
     }
 
     private function generate(): void
@@ -85,8 +132,17 @@ class GenerateTypescriptCommand extends Command
             Storage::disk('local')->put('dev/schema.json', json_encode($schema, JSON_PRETTY_PRINT));
         }
 
-        $converter = new Convert($schema, $config['with_json_ld']);
-        $converter->generateFile($config['output_path']);
+        $converter = new Convert(
+            $schema,
+            $config['with_json_ld'],
+            $config['discover_all_dataobjects'] ?? false,
+        );
+
+        if (($config['output_mode'] ?? 'single') === 'multiple') {
+            $converter->generateFiles($config['output_dir'] ?? resource_path('js/types'));
+        } else {
+            $converter->generateFile($config['output_path']);
+        }
 
         $this->info('TypeScript types generated successfully!');
     }

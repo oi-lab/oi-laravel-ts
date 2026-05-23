@@ -64,3 +64,10 @@ export { default as MyType } from './my-type-impl';
 ```
 
 Then reference it as `@/types/my-type|MyType`.
+
+## Multi-file output mode
+
+In single-file mode all external imports are collected at the top of the one
+generated file. In [multiple output mode](multi-file-output.md), each external
+import is re-emitted only in the files whose interfaces actually use the type, so
+no file carries imports it does not need.

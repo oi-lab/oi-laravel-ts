@@ -17,6 +17,10 @@ php artisan oi:gen-ts
 
 The generator scans all models in `app/Models`, builds a type schema, and writes the output file (default: `resources/js/types/interfaces.ts`).
 
+By default everything is written to a single file. You can instead emit one file
+per interface plus an `index.ts` barrel — see
+[Multi-file output](../advanced/multi-file-output.md).
+
 ## Using in TypeScript
 
 Import interfaces directly from the generated file:
@@ -57,5 +61,7 @@ The generator produces an interface for every discovered model. Each interface i
 - **Relationships** — as optional typed arrays or single-object references
 - **Relationship counts** — `{relation}_count?: number` (if `with_counts` is enabled)
 - **Custom props** — any properties defined in `custom_props` config
+- **DataObjects** — interfaces for cast value objects, and optionally for every
+  DataObject in your namespaces (see `discover_all_dataobjects`)
 
 See the individual pages for details on [relationships](relationships.md), [custom casts](custom-casts.md), and [DataObjects](data-objects.md).

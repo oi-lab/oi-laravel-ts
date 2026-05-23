@@ -9,6 +9,9 @@ order: 2
 
 When `with_json_ld` is enabled, the package adds a `JsonLdRawNode` interface to the generated file. This is useful when your application works with structured data following the JSON-LD specification.
 
+> In [multiple output mode](multi-file-output.md), `JsonLdRawNode` is written to
+> its own `json-ld-raw-node.ts` file and imported by the interfaces that use it.
+
 ## Enabling JSON-LD
 
 ```php

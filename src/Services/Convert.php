@@ -4,10 +4,12 @@ namespace OiLab\OiLaravelTs\Services;
 
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
 use OiLab\OiLaravelTs\Services\Generators\ImportManager;
+use OiLab\OiLaravelTs\Services\Generators\InterfaceFileWriter;
+use OiLab\OiLaravelTs\Services\Generators\InterfaceUnit;
 use OiLab\OiLaravelTs\Services\Generators\JsonLdGenerator;
 use OiLab\OiLaravelTs\Services\Generators\ModelInterfaceGenerator;
 use OiLab\OiLaravelTs\Services\Processors\DataObjectProcessor;
-use Illuminate\Support\Facades\File;
+use OiLab\OiLaravelTs\Services\DataObjectResolver;
 
 /**
  * TypeScript Converter
@@ -56,6 +58,17 @@ class Convert
     private bool $withJsonLd;
 
     /**
+     * Whether to discover and emit every DataObject under the configured
+     * namespaces, even those not referenced by any model cast.
+     */
+    private bool $discoverAllDataObjects;
+
+    /**
+     * Resolver shared with the DataObject processor.
+     */
+    private DataObjectResolver $dataObjectResolver;
+
+    /**
      * Import manager instance.
      */
     private ImportManager $importManager;
@@ -76,6 +89,11 @@ class Convert
     private JsonLdGenerator $jsonLdGenerator;
 
     /**
+     * File writer instance.
+     */
+    private InterfaceFileWriter $fileWriter;
+
+    /**
      * Type converter instance.
      */
     private TypeScriptTypeConverter $typeConverter;
@@ -89,18 +107,22 @@ class Convert
      *     types: array
      * }> $schema The model schema from Eloquent service
      * @param  bool  $withJsonLd  Whether to include JSON-LD support
+     * @param  bool  $discoverAllDataObjects  Whether to emit every DataObject under the configured namespaces
      */
-    public function __construct(array $schema, bool $withJsonLd = false)
+    public function __construct(array $schema, bool $withJsonLd = false, bool $discoverAllDataObjects = false)
     {
         $this->schema = $schema;
         $this->withJsonLd = $withJsonLd;
+        $this->discoverAllDataObjects = $discoverAllDataObjects;
 
         // Initialize all components
         $this->typeConverter = new TypeScriptTypeConverter;
         $this->importManager = new ImportManager;
-        $this->dataObjectProcessor = new DataObjectProcessor($this->typeConverter);
+        $this->dataObjectResolver = new DataObjectResolver;
+        $this->dataObjectProcessor = new DataObjectProcessor($this->typeConverter, $this->dataObjectResolver);
         $this->modelGenerator = new ModelInterfaceGenerator($this->typeConverter);
         $this->jsonLdGenerator = new JsonLdGenerator;
+        $this->fileWriter = new InterfaceFileWriter;
     }
 
     /**
@@ -125,7 +147,53 @@ class Convert
             $content .= $this->jsonLdGenerator->generate();
         }
 
-        File::put($path, $content);
+        $this->fileWriter->writeSingle($content, $path);
+    }
+
+    /**
+     * Generate one TypeScript file per interface plus an `index.ts` barrel.
+     *
+     * Each file imports exactly the interfaces it references. Use this for the
+     * `multiple` output mode.
+     *
+     * @param  string  $directory  The directory where the files will be written
+     */
+    public function generateFiles(string $directory): void
+    {
+        $this->importManager->collectImports($this->schema);
+
+        $this->fileWriter->writeMultiple(
+            $this->getInterfaceUnits(),
+            $this->importManager->getImports(),
+            $directory,
+        );
+    }
+
+    /**
+     * Collect every generated interface as a structured unit.
+     *
+     * Triggers DataObject and model processing (idempotent thanks to the
+     * generators' dedup guards), then merges their units. When JSON-LD support
+     * is enabled, the shared `JsonLdRawNode` interface is appended as its own
+     * unit so multi-file mode can emit it as a standalone, importable file.
+     *
+     * @return array<int, InterfaceUnit>
+     */
+    public function getInterfaceUnits(): array
+    {
+        $this->processDataObjects();
+        $this->processModels();
+
+        $units = array_merge(
+            $this->dataObjectProcessor->getUnits(),
+            $this->modelGenerator->getUnits(),
+        );
+
+        if ($this->withJsonLd) {
+            $units[] = InterfaceUnit::make('JsonLdRawNode', trim($this->jsonLdGenerator->generate()));
+        }
+
+        return $units;
     }
 
     /**
@@ -205,6 +273,14 @@ class Convert
                 if (isset($field['isDataObject']) && $field['isDataObject']) {
                     $this->dataObjectProcessor->processDataObject($field);
                 }
+            }
+        }
+
+        // Enqueue every DataObject under the configured namespaces. Dedup via
+        // processedDataObjects ensures a DO also exposed by a cast is not emitted twice.
+        if ($this->discoverAllDataObjects) {
+            foreach ($this->dataObjectResolver->listDataObjectsInNamespaces() as $fqcn) {
+                $this->dataObjectProcessor->enqueue($fqcn);
             }
         }
 

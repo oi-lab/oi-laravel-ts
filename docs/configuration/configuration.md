@@ -19,6 +19,37 @@ The path where the generated TypeScript file is written.
 'output_path' => resource_path('js/types/interfaces.ts'),
 ```
 
+Used only in `single` output mode.
+
+## output_mode
+
+**Type:** `string` — **Default:** `'single'`
+
+Controls how the generated interfaces are written to disk:
+
+- `'single'` — every interface is concatenated into one file at `output_path`.
+- `'multiple'` — each interface is written to its own kebab-cased file in
+  `output_dir`, alongside an `index.ts` barrel. Every file imports exactly the
+  interfaces it references.
+
+```php
+'output_mode' => 'single',
+```
+
+See [Multi-file output](../advanced/multi-file-output.md) for the full layout and
+import behavior.
+
+## output_dir
+
+**Type:** `string` — **Default:** `resource_path('js/types')`
+
+Target directory for the generated files when `output_mode` is `'multiple'`.
+Ignored in `single` mode.
+
+```php
+'output_dir' => resource_path('js/types'),
+```
+
 ## with_counts
 
 **Type:** `bool` — **Default:** `true`
@@ -88,6 +119,23 @@ Namespaces searched when resolving short DataObject class names found in PHPDoc 
 ],
 ```
 
+## discover_all_dataobjects
+
+**Type:** `bool` — **Default:** `false`
+
+When `true`, every DataObject under `dataobject_namespaces` is emitted as an
+`I{ClassName}` interface, even if no model cast references it. Namespaces are
+scanned recursively and nested DataObjects are resolved automatically. Two
+classes resolving to the same short name throw a
+`DataObjectNameCollisionException`.
+
+When `false` (default), a DataObject is only generated when it is reachable from
+a model cast. See [DataObjects](/usage/data-objects) for details.
+
+```php
+'discover_all_dataobjects' => false,
+```
+
 ## custom_props
 
 **Type:** `array` — **Default:** `[]`
@@ -113,3 +161,6 @@ The external type format `@/types/layouts|LayoutConfig` generates an import stat
 ```typescript
 import { LayoutConfig } from '@/types/layouts';
 ```
+
+In `multiple` output mode this import is re-emitted in each generated file that
+uses the type. See [Multi-file output](../advanced/multi-file-output.md).

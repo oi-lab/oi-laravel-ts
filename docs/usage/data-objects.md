@@ -100,3 +100,36 @@ The package looks for DataObject classes in the namespaces configured in `dataob
 ```
 
 Short class names referenced in PHPDoc (e.g. `@var Address`) are resolved by checking each namespace in order.
+
+## Discovering every DataObject
+
+By default a DataObject only gets an interface when it is reachable from a model
+cast (directly, or nested through another DataObject's PHPDoc). A DataObject that
+no model ever exposes is never generated.
+
+Set `discover_all_dataobjects` to `true` to emit an interface for **every**
+DataObject found under `dataobject_namespaces`, regardless of whether a model
+references it:
+
+```php
+'discover_all_dataobjects' => true,
+```
+
+With this enabled:
+
+- Every class under the configured namespaces that exposes `fromArray()` and
+  `toArray()` is emitted as `I{ClassName}`. Sub-namespaces are scanned
+  recursively.
+- Nested DataObjects (referenced through PHPDoc such as
+  `@param array<int, OrderLine> $lines`) are resolved and emitted too.
+- A DataObject that is *also* exposed by a cast is emitted only once.
+- Classes without a constructor are skipped rather than emitted as empty
+  interfaces.
+
+### Name collisions
+
+Interfaces are keyed by short class name (`App\DataObjects\Address` →
+`IAddress`). If two distinct classes under the configured namespaces resolve to
+the same short name, generation stops with a
+`DataObjectNameCollisionException` listing the conflicting classes. Rename one of
+them or narrow `dataobject_namespaces` to resolve the conflict.

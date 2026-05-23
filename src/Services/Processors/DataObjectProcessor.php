@@ -4,6 +4,7 @@ namespace OiLab\OiLaravelTs\Services\Processors;
 
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
 use OiLab\OiLaravelTs\Services\DataObjectResolver;
+use OiLab\OiLaravelTs\Services\Generators\InterfaceUnit;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -32,9 +33,11 @@ class DataObjectProcessor
     private array $pendingDataObjects = [];
 
     /**
-     * The TypeScript output being built.
+     * Generated interface units, in processing order.
+     *
+     * @var array<int, InterfaceUnit>
      */
-    private string $output = '';
+    private array $units = [];
 
     private DataObjectResolver $dataObjectResolver;
 
@@ -83,7 +86,8 @@ class DataObjectProcessor
             return;
         }
 
-        $this->output .= "export interface I{$dataObjectName} {\n";
+        $interfaceName = "I{$dataObjectName}";
+        $body = "export interface {$interfaceName} {\n";
 
         foreach ($field['properties'] as $property) {
             $propName = $property['name'];
@@ -93,10 +97,40 @@ class DataObjectProcessor
             // Detect nested DataObjects
             $this->detectNestedDataObjects($propType);
 
-            $this->output .= "    {$propName}".($optional ? '?' : '').": {$propType};\n";
+            $body .= "    {$propName}".($optional ? '?' : '').": {$propType};\n";
         }
 
-        $this->output .= "}\n\n";
+        $body .= '}';
+
+        $this->units[] = InterfaceUnit::make($interfaceName, $body);
+    }
+
+    /**
+     * Enqueue a DataObject class for processing.
+     *
+     * Used by the autonomous discovery flow to seed the queue with classes that
+     * are not referenced by any model cast. The drain loop in Convert then
+     * handles them (and any nested DataObjects) like regular pending entries.
+     *
+     * The anti-duplicate guard mirrors detectNestedDataObjects(): nothing is
+     * enqueued if its short name was already processed or its FQCN is already
+     * pending.
+     *
+     * @param  string  $dataObjectClass  The fully qualified class name
+     */
+    public function enqueue(string $dataObjectClass): void
+    {
+        $dataObjectName = class_basename($dataObjectClass);
+
+        if (in_array($dataObjectName, $this->processedDataObjects, true)) {
+            return;
+        }
+
+        if (in_array($dataObjectClass, $this->pendingDataObjects, true)) {
+            return;
+        }
+
+        $this->pendingDataObjects[] = $dataObjectClass;
     }
 
     /**
@@ -170,7 +204,8 @@ class DataObjectProcessor
             // Parse PHPDoc for parameter types
             $phpDocTypes = $this->parsePhpDocTypes($docComment);
 
-            $this->output .= "export interface I{$dataObjectName} {\n";
+            $interfaceName = "I{$dataObjectName}";
+            $body = "export interface {$interfaceName} {\n";
 
             foreach ($parameters as $parameter) {
                 $paramName = $parameter->getName();
@@ -189,10 +224,12 @@ class DataObjectProcessor
                 $this->detectNestedDataObjects($tsType);
 
                 $optional = $nullable || $hasDefault;
-                $this->output .= "    {$paramName}".($optional ? '?' : '').": {$tsType};\n";
+                $body .= "    {$paramName}".($optional ? '?' : '').": {$tsType};\n";
             }
 
-            $this->output .= "}\n\n";
+            $body .= '}';
+
+            $this->units[] = InterfaceUnit::make($interfaceName, $body);
         } catch (ReflectionException $e) {
             // Ignore reflection errors
         }
@@ -296,18 +333,34 @@ class DataObjectProcessor
      */
     public function getOutput(): string
     {
-        return $this->output;
+        $output = '';
+
+        foreach ($this->units as $unit) {
+            $output .= $unit->body."\n\n";
+        }
+
+        return $output;
+    }
+
+    /**
+     * Get the generated interface units.
+     *
+     * @return array<int, InterfaceUnit>
+     */
+    public function getUnits(): array
+    {
+        return $this->units;
     }
 
     /**
      * Clear the processor state.
      *
-     * Resets all internal state including processed/pending lists and output.
+     * Resets all internal state including processed/pending lists and units.
      */
     public function reset(): void
     {
         $this->processedDataObjects = [];
         $this->pendingDataObjects = [];
-        $this->output = '';
+        $this->units = [];
     }
 }
