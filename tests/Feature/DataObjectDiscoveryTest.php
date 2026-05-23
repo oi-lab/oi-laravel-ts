@@ -3,6 +3,7 @@
 use OiLab\OiLaravelTs\Exceptions\DataObjectNameCollisionException;
 use OiLab\OiLaravelTs\Services\Convert;
 use OiLab\OiLaravelTs\Services\Eloquent;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Order;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
 
 const STANDALONE_NS = 'OiLab\\OiLaravelTs\\Tests\\Fixtures\\DataObjects\\Standalone';
@@ -63,5 +64,12 @@ describe('DataObject autonomous discovery', function () {
 
         expect($output)->not->toContain('export interface IOrderData')
             ->and($output)->not->toContain('export interface IShippingData');
+    });
+
+    it('types an accessor-returned DataObject as its interface reference, not never', function () {
+        $output = generateWithDiscovery([DATAOBJECTS_NS], [Order::class], true);
+
+        expect($output)->toContain('metadata: IMetadataData;')
+            ->and($output)->not->toContain('metadata: never;');
     });
 });

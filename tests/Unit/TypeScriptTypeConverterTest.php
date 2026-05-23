@@ -28,5 +28,22 @@ describe('TypeScriptTypeConverter', function () {
             'string | number',
             'Record<string, number>',
         ]);
+
+        it('passes generated interface references through untouched', function (string $interfaceRef) {
+            expect($this->converter->convertColumnType($interfaceRef))->toBe($interfaceRef);
+        })->with([
+            'IOrderSummary',
+            'IAddress',
+            'IMetadataData',
+            'IOrderLineData',
+        ]);
+
+        it('still returns never for unknown non-interface types', function (string $unknownType) {
+            expect($this->converter->convertColumnType($unknownType))->toBe('never');
+        })->with([
+            'unknown_type',
+            'Invalid',   // no leading I
+            'Iinvalid',  // second char is lowercase — not a generated interface
+        ]);
     });
 });

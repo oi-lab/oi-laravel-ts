@@ -308,11 +308,13 @@ class TypeScriptTypeConverter
      */
     public function convertColumnType(string $columnType): string
     {
-        // Pass through native TypeScript types (arrays, unions, records) untouched.
+        // Pass through native TypeScript types (arrays, unions, records, and
+        // generated interface references like IOrderSummary) untouched.
         // This lets custom_props and resolved casts declare TS types directly.
         if (str_contains($columnType, '[]')
             || str_contains($columnType, '|')
-            || str_starts_with($columnType, 'Record<')) {
+            || str_starts_with($columnType, 'Record<')
+            || preg_match('/^I[A-Z]\w*$/', $columnType)) {
             return $columnType;
         }
 
