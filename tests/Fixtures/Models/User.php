@@ -3,9 +3,11 @@
 namespace OiLab\OiLaravelTs\Tests\Fixtures\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use OiLab\OiLaravelTs\Tests\Fixtures\Casts\AddressCast;
+use OiLab\OiLaravelTs\Tests\Fixtures\ExcludedModels\Category;
 
 class User extends Model
 {
@@ -45,5 +47,10 @@ class User extends Model
         return $this->belongsToMany(Role::class, 'memberships')
             ->using(Membership::class)
             ->withPivot(['assigned_at', 'assigned_by']);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 }

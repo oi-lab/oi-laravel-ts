@@ -57,6 +57,16 @@ describe('excluded_namespaces', function () {
             ->and($schema)->not->toHaveKey('User');
     });
 
+    it('strips relationship fields on non-excluded models that point to excluded-namespace models', function () {
+        Eloquent::setAdditionalModels([User::class]);
+        Eloquent::setExcludedNamespaces(['OiLab\\OiLaravelTs\\Tests\\Fixtures\\ExcludedModels']);
+
+        $schema = Eloquent::getSchema();
+        $fields = $schema['User']['types']->pluck('field')->all();
+
+        expect($fields)->not->toContain('category');
+    });
+
     it('generates no TypeScript for excluded models', function () {
         Eloquent::setAdditionalModels([User::class, Category::class]);
         Eloquent::setExcludedNamespaces(['OiLab\\OiLaravelTs\\Tests\\Fixtures\\ExcludedModels']);

@@ -245,6 +245,21 @@ class SchemaBuilder
             ];
         }
 
+        // Strip relationship fields that point to excluded-namespace models.
+        foreach ($schema as &$entry) {
+            $entry['types'] = $entry['types']->filter(function (array $type) {
+                if (empty($type['relation']) || empty($type['model'])) {
+                    return true;
+                }
+
+                return ! $this->isInNamespaceList(
+                    ltrim((string) $type['model'], '\\'),
+                    $this->excludedNamespaces
+                );
+            })->values();
+        }
+        unset($entry);
+
         // Apply global custom props (properties with ? prefix)
         $this->applyGlobalCustomProps($schema);
 
