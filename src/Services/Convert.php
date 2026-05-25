@@ -275,6 +275,13 @@ class Convert
                 if (isset($field['isDataObject']) && $field['isDataObject']) {
                     $this->dataObjectProcessor->processDataObject($field);
                 }
+
+                // Also scan every field type for IXxx references. Accessors that return a
+                // DataObject class and custom props typed as an existing interface (e.g.
+                // 'IProductPrice') produce types like 'IMetadataData' without setting the
+                // isDataObject flag. detectNestedDataObjects enqueues any matching class so
+                // its interface is generated and importable.
+                $this->dataObjectProcessor->detectNestedDataObjects($field['type'] ?? '');
             }
         }
 

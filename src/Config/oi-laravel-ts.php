@@ -142,6 +142,41 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Excluded Namespaces
+    |--------------------------------------------------------------------------
+    |
+    | Models whose fully-qualified class name begins with one of these namespace
+    | prefixes are excluded entirely from the generated schema — even when they
+    | are discovered through a relationship.
+    |
+    */
+    'excluded_namespaces' => [
+        // Example:
+        // 'OiLab\\Prestashop\\Models',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Extended Namespaces
+    |--------------------------------------------------------------------------
+    |
+    | Models in these namespaces do not generate standalone interfaces. Instead,
+    | for each such model whose short class name matches a base model already in
+    | the schema, an additional extension interface is emitted:
+    |
+    |   export interface I{Name}Extended extends I{Name} { ... }
+    |
+    | This is useful for package-specific variants of app models that add extra
+    | typed fields without replacing the base interface.
+    |
+    */
+    'extended_namespaces' => [
+        // Example:
+        // 'OiLab\\Prestashop\\Models\\Extended',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Custom Props
     |--------------------------------------------------------------------------
     |

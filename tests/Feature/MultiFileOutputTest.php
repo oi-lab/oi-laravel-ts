@@ -6,6 +6,7 @@ use OiLab\OiLaravelTs\Tests\Fixtures\Models\Attachment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Event;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Membership;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Order;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Role;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
@@ -135,5 +136,21 @@ describe('multi-file output', function () {
         expect($user)->toContain("import type { UserMeta } from '@/types/user-meta';")
             ->and($user)->toContain('external_meta: UserMeta;')
             ->and($post)->not->toContain('UserMeta');
+    });
+
+    it('imports DataObject interface used via accessor return type in multi-file mode', function () {
+        config()->set('oi-laravel-ts.dataobject_namespaces', ['OiLab\\OiLaravelTs\\Tests\\Fixtures\\DataObjects']);
+
+        Eloquent::setCustomProps([]);
+        Eloquent::setWithCounts(false);
+        Eloquent::setDiscoverRelatedModels(false);
+        Eloquent::setAdditionalModels([Order::class]);
+
+        (new Convert(Eloquent::getSchema(), false))->generateFiles($this->outDir);
+
+        $order = file_get_contents($this->outDir.'/order.ts');
+
+        expect($order)->toContain("import type { IMetadataData } from './metadata-data';")
+            ->and($order)->toContain('metadata: IMetadataData');
     });
 });

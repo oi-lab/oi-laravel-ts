@@ -58,6 +58,12 @@ class ModelInterfaceGenerator
      */
     public function processModel(array $model): void
     {
+        if (! empty($model['isExtension'])) {
+            $this->processExtensionModel($model);
+
+            return;
+        }
+
         $interfaceName = "I{$model['model']}";
 
         // Skip if already processed
@@ -77,6 +83,45 @@ class ModelInterfaceGenerator
         }
 
         $body = "export interface {$interfaceName} {\n";
+        $body .= '    '.implode("\n    ", $properties)."\n";
+        $body .= '}';
+
+        $this->units[] = InterfaceUnit::make($interfaceName, $body);
+    }
+
+    /**
+     * Generate an extension interface: `export interface I{Name}Extended extends I{Name}`.
+     *
+     * @param array{
+     *     model: string,
+     *     namespace: string,
+     *     types: iterable<array{field: string, type: string, relation: bool}>,
+     *     isExtension: bool,
+     *     extends: string
+     * } $model The extension model schema entry
+     */
+    private function processExtensionModel(array $model): void
+    {
+        $baseName = $model['extends'];
+        $interfaceName = "I{$baseName}Extended";
+        $baseInterface = "I{$baseName}";
+
+        if (in_array($interfaceName, $this->processedTypes)) {
+            return;
+        }
+
+        $this->processedTypes[] = $interfaceName;
+        $properties = [];
+
+        foreach ($model['types'] as $field) {
+            if (empty($field['field'])) {
+                continue;
+            }
+
+            $properties[] = $this->convertField($field);
+        }
+
+        $body = "export interface {$interfaceName} extends {$baseInterface} {\n";
         $body .= '    '.implode("\n    ", $properties)."\n";
         $body .= '}';
 

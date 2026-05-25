@@ -71,6 +71,28 @@ class SchemaBuilder
     private bool $discoverRelatedModels = true;
 
     /**
+     * Namespace prefixes whose models are excluded entirely from the schema.
+     *
+     * Any model whose fully-qualified class name begins with one of these
+     * prefixes is skipped — even when reached through a relationship.
+     *
+     * @var array<int, string>
+     */
+    private array $excludedNamespaces = [];
+
+    /**
+     * Namespace prefixes whose models generate extension interfaces.
+     *
+     * Models in these namespaces are NOT added as standalone schema entries.
+     * Instead, for each such model whose short class name matches an existing
+     * base-model in the schema, an additional `I{Name}Extended extends I{Name}`
+     * interface is generated.
+     *
+     * @var array<int, string>
+     */
+    private array $extendedNamespaces = [];
+
+    /**
      * Create a new schema builder instance.
      *
      * @param  ModelDiscovery  $modelDiscovery  Service for discovering models
@@ -129,6 +151,7 @@ class SchemaBuilder
     {
         $schema = [];
         $processed = [];
+        $pendingExtensions = [];
 
         // Seed the queue with explicitly known models (app/Models + additional).
         // The 'auto' flag marks whether a model was discovered through a
@@ -147,6 +170,19 @@ class SchemaBuilder
                 continue;
             }
             $processed[$namespace] = true;
+
+            // Skip excluded namespaces entirely — no interface, no relation follow.
+            if ($this->isInNamespaceList($namespace, $this->excludedNamespaces)) {
+                continue;
+            }
+
+            // Extended namespace models are intercepted and processed later so they
+            // produce `I{Name}Extended extends I{Name}` rather than a standalone entry.
+            if ($this->isInNamespaceList($namespace, $this->extendedNamespaces)) {
+                $pendingExtensions[] = [...$entry, 'namespace' => $namespace];
+
+                continue;
+            }
 
             // Keep the first model registered under a given short name so that
             // explicitly listed models take precedence over discovered ones.
@@ -177,6 +213,36 @@ class SchemaBuilder
                     ];
                 }
             }
+        }
+
+        // Build `I{Name}Extended extends I{Name}` entries for every intercepted
+        // extended-namespace model whose short name matches a base model in the schema.
+        foreach ($pendingExtensions as $entry) {
+            $baseName = $entry['model'];
+
+            if (! isset($schema[$baseName])) {
+                continue;
+            }
+
+            $extName = $baseName.'Extended';
+
+            if (isset($schema[$extName])) {
+                continue;
+            }
+
+            $types = $this->extractModelTypes($entry['namespace'], true);
+
+            if ($types === null) {
+                continue;
+            }
+
+            $schema[$extName] = [
+                'model' => $extName,
+                'namespace' => $entry['namespace'],
+                'types' => $types,
+                'isExtension' => true,
+                'extends' => $baseName,
+            ];
         }
 
         // Apply global custom props (properties with ? prefix)
@@ -397,6 +463,46 @@ class SchemaBuilder
     public function setDiscoverRelatedModels(bool $discoverRelatedModels): void
     {
         $this->discoverRelatedModels = $discoverRelatedModels;
+    }
+
+    /**
+     * Set namespace prefixes whose models are excluded entirely from the schema.
+     *
+     * @param  array<int, string>  $namespaces  Fully-qualified namespace prefixes
+     */
+    public function setExcludedNamespaces(array $namespaces): void
+    {
+        $this->excludedNamespaces = $namespaces;
+    }
+
+    /**
+     * Set namespace prefixes whose models produce extension interfaces.
+     *
+     * @param  array<int, string>  $namespaces  Fully-qualified namespace prefixes
+     */
+    public function setExtendedNamespaces(array $namespaces): void
+    {
+        $this->extendedNamespaces = $namespaces;
+    }
+
+    /**
+     * Test whether a fully-qualified class name begins with one of the given
+     * namespace prefixes (exact match or sub-namespace).
+     *
+     * @param  string  $namespace  Fully-qualified class name (no leading backslash)
+     * @param  array<int, string>  $prefixes  Namespace prefixes to match against
+     */
+    private function isInNamespaceList(string $namespace, array $prefixes): bool
+    {
+        foreach ($prefixes as $prefix) {
+            $prefix = rtrim($prefix, '\\');
+
+            if ($namespace === $prefix || str_starts_with($namespace, $prefix.'\\')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

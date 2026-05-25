@@ -66,6 +66,20 @@ class Eloquent
     private static bool $discoverRelatedModels = true;
 
     /**
+     * Namespace prefixes whose models are excluded entirely from the schema.
+     *
+     * @var array<int, string>
+     */
+    private static array $excludedNamespaces = [];
+
+    /**
+     * Namespace prefixes whose models produce extension interfaces.
+     *
+     * @var array<int, string>
+     */
+    private static array $extendedNamespaces = [];
+
+    /**
      * Custom property type overrides.
      *
      * Supports model-specific and global (with ?) overrides.
@@ -179,6 +193,42 @@ class Eloquent
     public static function setDiscoverRelatedModels(bool $discoverRelatedModels): void
     {
         self::$discoverRelatedModels = $discoverRelatedModels;
+    }
+
+    /**
+     * Set namespace prefixes whose models are excluded entirely from the schema.
+     *
+     * Models in these namespaces are skipped even when reached through a relation.
+     *
+     * @param  array<int, string>  $namespaces  Fully-qualified namespace prefixes
+     *
+     * @example
+     * ```php
+     * Eloquent::setExcludedNamespaces(['OiLab\\Prestashop\\Models']);
+     * ```
+     */
+    public static function setExcludedNamespaces(array $namespaces): void
+    {
+        self::$excludedNamespaces = $namespaces;
+    }
+
+    /**
+     * Set namespace prefixes whose models produce `I{Name}Extended extends I{Name}` interfaces.
+     *
+     * Models in these namespaces are not added to the schema as standalone entries.
+     * For each one whose short class name matches a base model already in the schema,
+     * an additional extension interface is generated.
+     *
+     * @param  array<int, string>  $namespaces  Fully-qualified namespace prefixes
+     *
+     * @example
+     * ```php
+     * Eloquent::setExtendedNamespaces(['OiLab\\Prestashop\\Extended\\Models']);
+     * ```
+     */
+    public static function setExtendedNamespaces(array $namespaces): void
+    {
+        self::$extendedNamespaces = $namespaces;
     }
 
     /**
@@ -328,6 +378,8 @@ class Eloquent
         $builder->setCustomProps(self::$customProps);
         $builder->setWithCounts(self::$withCounts);
         $builder->setDiscoverRelatedModels(self::$discoverRelatedModels);
+        $builder->setExcludedNamespaces(self::$excludedNamespaces);
+        $builder->setExtendedNamespaces(self::$extendedNamespaces);
 
         return $builder;
     }
