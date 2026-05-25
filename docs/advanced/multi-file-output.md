@@ -20,6 +20,30 @@ interface by setting `output_mode` to `'multiple'`:
 In `multiple` mode `output_path` is ignored and files are written to
 `output_dir` instead.
 
+## Barrel file name
+
+The barrel re-export file defaults to `index.ts`. If that name conflicts with an
+existing file in your project, override it with `barrel_file`:
+
+```php
+'barrel_file' => 'interfaces.ts',
+```
+
+The generated layout then becomes:
+
+```
+resources/js/types/
+├── interfaces.ts   // re-exports every interface
+├── user.ts
+└── post.ts
+```
+
+And you import from the named file instead:
+
+```typescript
+import type { IUser } from '@/types/interfaces';
+```
+
 ## Generated layout
 
 ```

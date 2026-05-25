@@ -139,7 +139,10 @@ class GenerateTypescriptCommand extends Command
         );
 
         if (($config['output_mode'] ?? 'single') === 'multiple') {
-            $converter->generateFiles($config['output_dir'] ?? resource_path('js/types'));
+            $converter->generateFiles(
+                $config['output_dir'] ?? resource_path('js/types'),
+                $config['barrel_file'] ?? 'index.ts',
+            );
         } else {
             $converter->generateFile($config['output_path']);
         }

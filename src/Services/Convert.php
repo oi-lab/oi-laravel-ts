@@ -151,14 +151,15 @@ class Convert
     }
 
     /**
-     * Generate one TypeScript file per interface plus an `index.ts` barrel.
+     * Generate one TypeScript file per interface plus a barrel file.
      *
      * Each file imports exactly the interfaces it references. Use this for the
      * `multiple` output mode.
      *
      * @param  string  $directory  The directory where the files will be written
+     * @param  string  $barrelFile  Name of the barrel file (default: index.ts)
      */
-    public function generateFiles(string $directory): void
+    public function generateFiles(string $directory, string $barrelFile = 'index.ts'): void
     {
         $this->importManager->collectImports($this->schema);
 
@@ -166,6 +167,7 @@ class Convert
             $this->getInterfaceUnits(),
             $this->importManager->getImports(),
             $directory,
+            $barrelFile,
         );
     }
 

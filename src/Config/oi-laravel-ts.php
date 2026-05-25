@@ -39,6 +39,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Barrel File
+    |--------------------------------------------------------------------------
+    |
+    | Name of the barrel file generated in 'multiple' mode that re-exports every
+    | interface. Defaults to `index.ts`. Override when `index.ts` is already used
+    | by your project (e.g. `'barrel_file' => 'interfaces.ts'`).
+    | Ignored in 'single' mode.
+    |
+    */
+    'barrel_file' => 'index.ts',
+
+    /*
+    |--------------------------------------------------------------------------
     | Include Relationship Counts
     |--------------------------------------------------------------------------
     |

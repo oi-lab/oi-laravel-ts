@@ -107,6 +107,16 @@ describe('multi-file output', function () {
         expect($jsonLd)->toContain('export interface JsonLdRawNode {');
     });
 
+    it('uses a custom barrel file name when specified', function () {
+        (new Convert(standardSchema(), false))->generateFiles($this->outDir, 'interfaces.ts');
+
+        expect(file_exists($this->outDir.'/interfaces.ts'))->toBeTrue()
+            ->and(file_exists($this->outDir.'/index.ts'))->toBeFalse();
+
+        $barrel = file_get_contents($this->outDir.'/interfaces.ts');
+        expect($barrel)->toContain("export * from './user';");
+    });
+
     it('re-emits external imports only in the files that use them', function () {
         Eloquent::setCustomProps([
             'User' => [

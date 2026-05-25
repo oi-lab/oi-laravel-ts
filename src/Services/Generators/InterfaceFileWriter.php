@@ -28,13 +28,14 @@ class InterfaceFileWriter
     }
 
     /**
-     * Write one file per interface plus an index barrel.
+     * Write one file per interface plus a barrel file.
      *
      * @param  array<int, InterfaceUnit>  $units  Interface units in emission order.
      * @param  array<string, array<int, string>>  $externalImports  Path => external type names (from ImportManager).
      * @param  string  $directory  Target directory for the generated files.
+     * @param  string  $barrelFile  Name of the barrel file (default: index.ts).
      */
-    public function writeMultiple(array $units, array $externalImports, string $directory): void
+    public function writeMultiple(array $units, array $externalImports, string $directory, string $barrelFile = 'index.ts'): void
     {
         File::ensureDirectoryExists($directory);
 
@@ -47,7 +48,7 @@ class InterfaceFileWriter
             File::put($directory.DIRECTORY_SEPARATOR.$fileName, $content);
         }
 
-        File::put($directory.DIRECTORY_SEPARATOR.'index.ts', $this->buildBarrel($units));
+        File::put($directory.DIRECTORY_SEPARATOR.$barrelFile, $this->buildBarrel($units));
     }
 
     /**
