@@ -6,6 +6,7 @@ use OiLab\OiLaravelTs\Services\Eloquent;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Attachment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Event;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\HasUuidsModel;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Membership;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Role;
@@ -396,5 +397,25 @@ describe('TypeScript Generation Integration', function () {
         $idFields = $schema['UuidModel']['types']->where('field', 'id');
 
         expect($idFields->count())->toBe(1);
+    });
+
+    it('types the primary key as string for HasUuids models using casts() method', function () {
+        Eloquent::setAdditionalModels([HasUuidsModel::class]);
+        $schema = Eloquent::getSchema();
+
+        $idField = $schema['HasUuidsModel']['types']->firstWhere('field', 'id');
+        $idFields = $schema['HasUuidsModel']['types']->where('field', 'id');
+
+        expect($idField)->not->toBeNull()
+            ->and($idField['type'])->toBe('string')
+            ->and($idFields->count())->toBe(1);
+    });
+
+    it('generates string id in TypeScript output for HasUuids models', function () {
+        Eloquent::setAdditionalModels([HasUuidsModel::class]);
+        $output = (new Convert(Eloquent::getSchema(), false))->toTypeScript();
+
+        expect($output)->toContain('id: string;')
+            ->and($output)->not->toContain('id: number');
     });
 });

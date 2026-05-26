@@ -4,7 +4,14 @@ All notable changes to `oi-laravel-ts` will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Namespace exclusion** (`excluded_namespaces`): models whose fully-qualified class name begins with one of the listed prefixes are dropped entirely from the schema — including when they are reached through a relationship. Relationship fields pointing to excluded models are also stripped from other interfaces.
+- **Extension interfaces** (`extended_namespaces`): models in these namespaces do not generate standalone interfaces. Instead, for each such model whose short class name matches a base model in the schema, an `I{Name}Extended extends I{Name}` interface is emitted with the extra fields.
+- Both options are also available programmatically via `Eloquent::setExcludedNamespaces()` and `Eloquent::setExtendedNamespaces()`.
+
 ### Fixed
+- Primary key type is now resolved properly: the generator checks `$casts` first (skipping class-based casts such as `AsUuid`), then falls back to `getKeyType()`. UUID / ULID primary keys declared as `string` via `HasUuids` or `$keyType` are now typed as `string` instead of `number`.
+- Primary key column is no longer duplicated in the generated interface when it also appears in `$fillable`.
 - Casts returning an array of PHP primitives (e.g. `@return array<int, int>`) now resolve to native TypeScript array types (`number[]`, `string[]`, `boolean[]`) instead of `never`.
 - `TypeScriptTypeConverter::convertColumnType()` now passes native TypeScript types (`[]`, `|`, `Record<...>`) through unchanged, allowing `custom_props` config entries to declare TypeScript types directly.
 

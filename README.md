@@ -16,6 +16,8 @@ A Laravel package that automatically generates TypeScript interfaces from your E
 - **Custom Casts**: Supports Laravel custom casts and automatically detects DataObjects
 - **PHPDoc Support**: Reads PHPDoc annotations for complex types
 - **Watch Mode**: Monitor your models directory and regenerate on changes
+- **Namespace Filters**: Exclude third-party models entirely, or promote them to extension interfaces
+- **Smart Primary Key Types**: UUID / ULID keys are typed as `string`, integer keys as `number`
 - **Configurable**: Extensive configuration options for customization
 - **JSON-LD Support**: Optional support for JSON-LD data structures
 
@@ -99,6 +101,12 @@ return [
     // Follow relationships to generate interfaces for referenced models
     // (incl. models attached through traits, e.g. spatie/laravel-permission)
     'discover_related_models' => true,
+
+    // Exclude models in these namespaces entirely (incl. relation fields pointing to them)
+    'excluded_namespaces' => [],
+
+    // Models in these namespaces emit I{Name}Extended extends I{Name} interfaces
+    'extended_namespaces' => [],
 
     // Save intermediate schema.json for debugging
     'save_schema' => false,
@@ -227,6 +235,52 @@ export interface IPage {
 }
 ```
 
+### Namespace Filters
+
+Exclude third-party or package models from the schema entirely:
+
+```php
+'excluded_namespaces' => [
+    'OiLab\\Prestashop\\Models',
+],
+```
+
+Models in these namespaces are dropped — including when reached through a relationship — and any relationship field pointing to them is stripped from other interfaces.
+
+Alternatively, turn package model variants into extension interfaces:
+
+```php
+'extended_namespaces' => [
+    'OiLab\\Prestashop\\Extended\\Models',
+],
+```
+
+For each extended model whose short name matches a base model in the schema, the generator emits:
+
+```typescript
+export interface IUserExtended extends IUser {
+    prestashop_id: number;
+}
+```
+
+### UUID / ULID Primary Keys
+
+Primary key types are resolved automatically. Models using `HasUuids`, `HasUlids`, or declaring `$keyType = 'string'` generate `id: string` instead of `id: number`:
+
+```typescript
+// Standard auto-increment model
+export interface IPost {
+    id: number;
+    // ...
+}
+
+// UUID model (uses HasUuids trait or $keyType = 'string')
+export interface IOrder {
+    id: string;
+    // ...
+}
+```
+
 ### Import External Types
 
 Reference external TypeScript types:
@@ -288,7 +342,7 @@ export default function Dashboard({ user }: Props) {
 
 ## Testing
 
-This package includes comprehensive test coverage with **39 tests** and **160 assertions**.
+This package includes comprehensive test coverage with **131 tests** and **322 assertions**.
 
 ### Run Tests
 
@@ -312,6 +366,8 @@ vendor/bin/pest --coverage
 - ✅ Custom cast resolution
 - ✅ DataObject handling
 - ✅ TypeScript interface generation
+- ✅ Namespace exclusion and extension interfaces
+- ✅ UUID / ULID primary key type resolution
 - ✅ Integration tests for full pipeline
 
 For detailed testing documentation, see [TESTING.md](TESTING.md).

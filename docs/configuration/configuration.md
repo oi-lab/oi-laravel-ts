@@ -136,6 +136,42 @@ a model cast. See [DataObjects](/usage/data-objects) for details.
 'discover_all_dataobjects' => false,
 ```
 
+## excluded_namespaces
+
+**Type:** `array` — **Default:** `[]`
+
+Models whose fully-qualified class name begins with one of these namespace prefixes are excluded entirely from the generated schema — even when they are reached through a relationship. Relationship fields that point to an excluded model are also stripped from all other interfaces.
+
+```php
+'excluded_namespaces' => [
+    'OiLab\\Prestashop\\Models',
+],
+```
+
+This is useful when a third-party package registers models that you do not want to expose as TypeScript interfaces.
+
+See [Namespace filters](../advanced/namespace-filters.md) for full examples.
+
+## extended_namespaces
+
+**Type:** `array` — **Default:** `[]`
+
+Models in these namespaces do not generate standalone interfaces. Instead, for each such model whose short class name matches a base model already in the schema, an additional extension interface is emitted:
+
+```typescript
+export interface IUserExtended extends IUser { ... }
+```
+
+```php
+'extended_namespaces' => [
+    'OiLab\\Prestashop\\Extended\\Models',
+],
+```
+
+This is useful for package-specific variants of your app models that add extra typed fields without replacing the base interface.
+
+See [Namespace filters](../advanced/namespace-filters.md) for full examples.
+
 ## custom_props
 
 **Type:** `array` — **Default:** `[]`
