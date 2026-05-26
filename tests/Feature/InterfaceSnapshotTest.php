@@ -29,6 +29,8 @@ it('generates the expected interfaces.ts for the standard fixture set', function
     Eloquent::setCustomProps([]);
     Eloquent::setWithCounts(true);
     Eloquent::setDiscoverRelatedModels(false);
+    Eloquent::setExcludedNamespaces([]);
+    Eloquent::setExtendedNamespaces([]);
     Eloquent::setAdditionalModels([
         User::class,
         Post::class,

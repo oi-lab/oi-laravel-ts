@@ -141,9 +141,11 @@ class TypeExtractor
         $customModelProps = $this->customProps[$modelName] ?? [];
 
         // 1. Add primary key
+        $keyName = $model->getKeyName();
+        $casts = $model->getCasts();
         $types->push([
-            'field' => $model->getKeyName(),
-            'type' => 'number',
+            'field' => $keyName,
+            'type' => $this->resolveKeyType($model, $keyName, $casts),
             'relation' => false,
         ]);
 
@@ -173,6 +175,34 @@ class TypeExtractor
     }
 
     /**
+     * Resolve the column type for the model's primary key.
+     *
+     * Checks model casts first (simple types only — class-based casts such as
+     * AsUuid are skipped so the key type falls back to `getKeyType()`).
+     * Defaults to 'integer' for int keys and 'string' for string keys.
+     *
+     * @param  Model  $model  The model instance
+     * @param  string  $keyName  The primary key column name
+     * @param  array<string, string>  $casts  The model's cast definitions
+     * @return string The column type (e.g. 'integer', 'string')
+     */
+    private function resolveKeyType(Model $model, string $keyName, array $casts): string
+    {
+        if (isset($casts[$keyName]) && ! class_exists($casts[$keyName])) {
+            $cast = $casts[$keyName];
+
+            // getCasts() auto-inserts 'int' for incrementing models; normalize to
+            // 'integer' so convertColumnType() maps it correctly to 'number'.
+            return $cast === 'int' ? 'integer' : $cast;
+        }
+
+        return match ($model->getKeyType()) {
+            'string' => 'string',
+            default => 'integer',
+        };
+    }
+
+    /**
      * Process fillable attributes and add them to the types collection.
      *
      * For each fillable attribute:
@@ -190,8 +220,13 @@ class TypeExtractor
     {
         $columns = $model->getFillable();
         $casts = $model->getCasts();
+        $keyName = $model->getKeyName();
 
         foreach ($columns as $column) {
+            // Skip the primary key — it was already added in extractTypes.
+            if ($column === $keyName) {
+                continue;
+            }
             // Check for custom property override first
             if (isset($customModelProps[$column])) {
                 $customType = $customModelProps[$column];

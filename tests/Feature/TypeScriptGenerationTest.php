@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Collection;
 use OiLab\OiLaravelTs\Services\Convert;
 use OiLab\OiLaravelTs\Services\Eloquent;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Attachment;
@@ -9,6 +10,7 @@ use OiLab\OiLaravelTs\Tests\Fixtures\Models\Membership;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Role;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\UuidModel;
 
 describe('TypeScript Generation Integration', function () {
     it('generates TypeScript interfaces from models', function () {
@@ -37,7 +39,7 @@ describe('TypeScript Generation Integration', function () {
         $userSchema = $schema['User'];
 
         expect($userSchema)->toHaveKey('types')
-            ->and($userSchema['types'])->toBeInstanceOf(\Illuminate\Support\Collection::class);
+            ->and($userSchema['types'])->toBeInstanceOf(Collection::class);
 
         $types = $userSchema['types'];
         $fieldNames = $types->pluck('field')->toArray();
@@ -351,7 +353,7 @@ describe('TypeScript Generation Integration', function () {
         expect($schema)->toHaveKey('Comment')
             ->and($schema)->toHaveKey('Post')
             ->and($schema)->toHaveKey('User')
-            ->and($schema['User']['types'])->toBeInstanceOf(\Illuminate\Support\Collection::class);
+            ->and($schema['User']['types'])->toBeInstanceOf(Collection::class);
     });
 
     it('does not discover related models when discovery is disabled', function () {
@@ -367,5 +369,32 @@ describe('TypeScript Generation Integration', function () {
 
         // Restore the default so later tests are unaffected.
         Eloquent::setDiscoverRelatedModels(true);
+    });
+
+    it('types the primary key as string when keyType is string', function () {
+        Eloquent::setAdditionalModels([UuidModel::class]);
+        $schema = Eloquent::getSchema();
+
+        $idField = $schema['UuidModel']['types']->firstWhere('field', 'id');
+
+        expect($idField)->not->toBeNull()
+            ->and($idField['type'])->toBe('string');
+    });
+
+    it('generates string id in TypeScript output for UUID models', function () {
+        Eloquent::setAdditionalModels([UuidModel::class]);
+        $output = (new Convert(Eloquent::getSchema(), false))->toTypeScript();
+
+        expect($output)->toContain('id: string;')
+            ->and($output)->not->toContain('id: number');
+    });
+
+    it('does not duplicate the primary key when it is in fillable', function () {
+        Eloquent::setAdditionalModels([UuidModel::class]);
+        $schema = Eloquent::getSchema();
+
+        $idFields = $schema['UuidModel']['types']->where('field', 'id');
+
+        expect($idFields->count())->toBe(1);
     });
 });

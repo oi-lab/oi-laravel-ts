@@ -22,6 +22,7 @@ export interface IUser {
     roles_count?: number;
     memberships?: (IRole & { pivot?: IMembership })[];
     memberships_count?: number;
+    category?: ICategory;
 }
 
 export interface IPost {
