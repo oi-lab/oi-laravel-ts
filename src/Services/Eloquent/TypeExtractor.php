@@ -140,14 +140,16 @@ class TypeExtractor
         // Get custom props for this model
         $customModelProps = $this->customProps[$modelName] ?? [];
 
-        // 1. Add primary key
+        // 1. Add primary key (pivot/ManyToMany models may have no primary key)
         $keyName = $model->getKeyName();
         $casts = $model->getCasts();
-        $types->push([
-            'field' => $keyName,
-            'type' => $this->resolveKeyType($model, $keyName, $casts),
-            'relation' => false,
-        ]);
+        if ($keyName !== null && $keyName !== '') {
+            $types->push([
+                'field' => $keyName,
+                'type' => $this->resolveKeyType($model, $keyName, $casts),
+                'relation' => false,
+            ]);
+        }
 
         // 2. Process fillable attributes
         $this->processFillableAttributes($model, $types, $customModelProps);

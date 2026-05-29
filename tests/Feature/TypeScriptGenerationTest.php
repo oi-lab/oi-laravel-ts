@@ -8,6 +8,7 @@ use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Event;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\HasUuidsModel;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Membership;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\NoPrimaryKeyModel;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Role;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
@@ -272,6 +273,18 @@ describe('TypeScript Generation Integration', function () {
         expect($postsFields->count())->toBe(1)
             ->and($postsFields->first()['type'])->toBe('IPost[]')
             ->and($postsFields->first()['relation'])->toBeFalse();
+    });
+
+    it('does not emit a primary key field for models with $primaryKey = null', function () {
+        Eloquent::setAdditionalModels([NoPrimaryKeyModel::class]);
+        $schema = Eloquent::getSchema();
+
+        $types = $schema['NoPrimaryKeyModel']['types'];
+        $fieldNames = $types->pluck('field')->toArray();
+
+        expect($fieldNames)->not->toContain('id')
+            ->and($fieldNames)->toContain('user_id')
+            ->and($fieldNames)->toContain('role_id');
     });
 
     it('emits intersection type with pivot interface for BelongsToMany using a custom Pivot model', function () {
