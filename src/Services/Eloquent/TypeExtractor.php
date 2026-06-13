@@ -207,7 +207,7 @@ class TypeExtractor
     /**
      * Process fillable attributes and add them to the types collection.
      *
-     * For each fillable attribute:
+     * For each resolved column (see {@see resolveColumns()}):
      * - Checks for custom property override
      * - Checks for custom cast type
      * - Falls back to cast type from model
@@ -220,7 +220,7 @@ class TypeExtractor
      */
     private function processFillableAttributes(Model $model, Collection $types, array $customModelProps): void
     {
-        $columns = $model->getFillable();
+        $columns = $this->resolveColumns($model);
         $casts = $model->getCasts();
         $keyName = $model->getKeyName();
 
@@ -261,6 +261,54 @@ class TypeExtractor
                 'relation' => false,
             ]);
         }
+    }
+
+    /**
+     * Resolve the attribute columns to emit for a model.
+     *
+     * Models that declare `$fillable` advertise their attribute columns
+     * directly. Models that rely on `$guarded` instead (e.g.
+     * spatie/laravel-permission's Role/Permission, which set `$guarded = []`)
+     * expose no fillable columns, so the schema would otherwise be reduced to
+     * the primary key, timestamps and relationships — dropping real columns
+     * such as `name` and `guard_name`.
+     *
+     * When `$fillable` is empty, fall back to the model's database table
+     * columns. The primary key, timestamp and soft-delete columns are excluded
+     * because they are emitted by their dedicated handlers (with the correct
+     * nullability). Schema introspection requires a live connection; if it is
+     * unavailable (no database during generation, missing table, …) the method
+     * degrades gracefully to an empty list, preserving the previous behavior.
+     *
+     * @param  Model  $model  The model instance
+     * @return array<int, string> The column names to process as attributes
+     */
+    private function resolveColumns(Model $model): array
+    {
+        $fillable = $model->getFillable();
+
+        if ($fillable !== []) {
+            return $fillable;
+        }
+
+        try {
+            $columns = $model->getConnection()
+                ->getSchemaBuilder()
+                ->getColumnListing($model->getTable());
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $excluded = array_filter([
+            $model->getKeyName(),
+            $model->usesTimestamps() ? $model->getCreatedAtColumn() : null,
+            $model->usesTimestamps() ? $model->getUpdatedAtColumn() : null,
+            in_array(SoftDeletes::class, class_uses_recursive($model), true)
+                ? $model->getDeletedAtColumn()
+                : null,
+        ], fn (?string $column): bool => $column !== null && $column !== '');
+
+        return array_values(array_diff($columns, $excluded));
     }
 
     /**

@@ -10,6 +10,7 @@ All notable changes to `oi-laravel-ts` will be documented in this file.
 - Both options are also available programmatically via `Eloquent::setExcludedNamespaces()` and `Eloquent::setExtendedNamespaces()`.
 
 ### Fixed
+- **Schema fallback for guarded models**: models that rely on `$guarded` instead of `$fillable` (e.g. spatie/laravel-permission's `Role`/`Permission`, which set `$guarded = []`) used to generate interfaces reduced to the primary key, timestamps and relationships — dropping real columns such as `name` and `guard_name`. When `$fillable` is empty, the extractor now falls back to the model's database table columns (excluding the primary key, timestamp and soft-delete columns, which are emitted by their dedicated handlers). Schema introspection degrades gracefully to the previous behavior when no database connection is available.
 - Primary key type is now resolved properly: the generator checks `$casts` first (skipping class-based casts such as `AsUuid`), then falls back to `getKeyType()`. UUID / ULID primary keys declared as `string` via `HasUuids` or `$keyType` are now typed as `string` instead of `number`.
 - Primary key column is no longer duplicated in the generated interface when it also appears in `$fillable`.
 - Casts returning an array of PHP primitives (e.g. `@return array<int, int>`) now resolve to native TypeScript array types (`number[]`, `string[]`, `boolean[]`) instead of `never`.
