@@ -16,23 +16,35 @@ The package ships a skill file that communicates this context automatically.
 
 ## Installing the skill
 
-Run the install command once after adding the package:
+The recommended way to install skills is the unified `oi:skills` command (provided by `oi-lab/oi-laravel-development`):
 
 ```bash
-php artisan oi:install-ai-skill
+php artisan oi:skills
+```
+
+It discovers the skills declared by every installed `oi-lab/*` package and lets you pick which ones to install via an interactive multiselect picker, choosing whether to install them in the project (`.claude` + `.junie`) or your Claude Code user profile (`~/.claude`).
+
+To install only this package's skill non-interactively:
+
+```bash
+php artisan oi:skills oilab-laravel-ts --project
+# or, into your Claude Code user profile:
+php artisan oi:skills oilab-laravel-ts --global
 ```
 
 This command:
-- Creates `.claude/skills/oilab-laravel-ts/skill.md` (Claude Code)
-- Creates `.junie/skills/oilab-laravel-ts/skill.md` (JetBrains AI)
-- Prepends `@.claude/skills/oilab-laravel-ts/skill.md` to your `CLAUDE.md`, importing the skill automatically
+- Copies the skill to `.claude/skills/oilab-laravel-ts/` (Claude Code)
+- Copies the skill to `.junie/skills/oilab-laravel-ts/` (JetBrains AI)
+- Adds (or refreshes) the `=== oi-lab/oi-laravel-ts rules ===` section in your `CLAUDE.md`
+
+> A package-local command `php artisan oi-ts:install-ai-skill` is still available for projects that don't use `oi-lab/oi-laravel-development`, but it is **deprecated** in favor of `oi:skills`.
 
 ## Keeping the skill up to date
 
 When you update the package, re-run the command to pull in the latest skill content:
 
 ```bash
-php artisan oi:install-ai-skill
+php artisan oi:skills oilab-laravel-ts --project
 ```
 
 To automate this, add the command to your project's `post-autoload-dump` script in `composer.json`:
@@ -42,10 +54,12 @@ To automate this, add the command to your project's `post-autoload-dump` script 
     "post-autoload-dump": [
         "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
         "@php artisan package:discover --ansi",
-        "@php artisan oi:install-ai-skill --quiet"
+        "@php artisan oi:skills oilab-laravel-ts --project --quiet"
     ]
 }
 ```
+
+This requires `oi-lab/oi-laravel-development` to be installed.
 
 ## What the skill tells the AI
 

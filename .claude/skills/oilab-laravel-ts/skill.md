@@ -51,5 +51,5 @@ Generated interfaces follow the `I{ModelName}` pattern — `IUser`, `IPost`, `IC
 If you update this package, re-run the install command to refresh the skill files:
 
 ```bash
-php artisan oi:install-ai-skill
+php artisan oi:skills
 ```

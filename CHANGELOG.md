@@ -4,6 +4,9 @@ All notable changes to `oi-laravel-ts` will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- The AI skill install command was renamed to `oi-ts:install-ai-skill` and **deprecated** in favor of the unified `php artisan oi:skills` command (provided by `oi-lab/oi-laravel-development`), which discovers and installs skills from all installed `oi-lab/*` packages.
+
 ### Added
 - **Namespace exclusion** (`excluded_namespaces`): models whose fully-qualified class name begins with one of the listed prefixes are dropped entirely from the schema — including when they are reached through a relationship. Relationship fields pointing to excluded models are also stripped from other interfaces.
 - **Extension interfaces** (`extended_namespaces`): models in these namespaces do not generate standalone interfaces. Instead, for each such model whose short class name matches a base model in the schema, an `I{Name}Extended extends I{Name}` interface is emitted with the extra fields.

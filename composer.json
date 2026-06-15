@@ -42,6 +42,17 @@
             "providers": [
                 "OiLab\\OiLaravelTs\\OiLaravelTsServiceProvider"
             ]
+        },
+        "oi-lab": {
+            "skills": [
+                {
+                    "name": "oilab-laravel-ts",
+                    "description": "Generate TypeScript interfaces from Eloquent models",
+                    "path": "resources/stubs/ai-skill.md",
+                    "rules": "resources/stubs/claude-rules.md",
+                    "section": "oi-lab/oi-laravel-ts rules"
+                }
+            ]
         }
     },
     "scripts": {
