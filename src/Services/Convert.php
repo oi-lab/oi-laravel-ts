@@ -2,14 +2,17 @@
 
 namespace OiLab\OiLaravelTs\Services;
 
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
+use OiLab\OiLaravelTs\Services\Eloquent\DataClassAnalyzer;
+use OiLab\OiLaravelTs\Services\Eloquent\PhpToTypeScriptConverter;
 use OiLab\OiLaravelTs\Services\Generators\ImportManager;
 use OiLab\OiLaravelTs\Services\Generators\InterfaceFileWriter;
 use OiLab\OiLaravelTs\Services\Generators\InterfaceUnit;
 use OiLab\OiLaravelTs\Services\Generators\JsonLdGenerator;
 use OiLab\OiLaravelTs\Services\Generators\ModelInterfaceGenerator;
+use OiLab\OiLaravelTs\Services\Processors\DataClassProcessor;
 use OiLab\OiLaravelTs\Services\Processors\DataObjectProcessor;
-use OiLab\OiLaravelTs\Services\DataObjectResolver;
 
 /**
  * TypeScript Converter
@@ -64,9 +67,27 @@ class Convert
     private bool $discoverAllDataObjects;
 
     /**
+     * Whether mapped models should be replaced by their DTO interface rather
+     * than emitting their own Eloquent interface.
+     */
+    private bool $dataReplacesModel;
+
+    /**
+     * Short names of models replaced by a DTO (only when $dataReplacesModel).
+     *
+     * @var array<int, string>
+     */
+    private array $replacedModelNames;
+
+    /**
      * Resolver shared with the DataObject processor.
      */
     private DataObjectResolver $dataObjectResolver;
+
+    /**
+     * Resolver shared with the Data class (DTO) processor.
+     */
+    private DataClassResolver $dataClassResolver;
 
     /**
      * Import manager instance.
@@ -77,6 +98,11 @@ class Convert
      * DataObject processor instance.
      */
     private DataObjectProcessor $dataObjectProcessor;
+
+    /**
+     * Data class (DTO) processor instance.
+     */
+    private DataClassProcessor $dataClassProcessor;
 
     /**
      * Model interface generator instance.
@@ -108,21 +134,40 @@ class Convert
      * }> $schema The model schema from Eloquent service
      * @param  bool  $withJsonLd  Whether to include JSON-LD support
      * @param  bool  $discoverAllDataObjects  Whether to emit every DataObject under the configured namespaces
+     * @param  array<int, string>  $dataNamespaces  Namespaces holding spatie-style DTOs to emit
+     * @param  bool  $dataReplacesModel  Whether a mapped model's Eloquent interface is suppressed in favor of its DTO
+     * @param  array<string, string>  $dataForModel  Explicit model => DTO mapping
      */
-    public function __construct(array $schema, bool $withJsonLd = false, bool $discoverAllDataObjects = false)
-    {
+    public function __construct(
+        array $schema,
+        bool $withJsonLd = false,
+        bool $discoverAllDataObjects = false,
+        array $dataNamespaces = [],
+        bool $dataReplacesModel = false,
+        array $dataForModel = [],
+    ) {
         $this->schema = $schema;
         $this->withJsonLd = $withJsonLd;
         $this->discoverAllDataObjects = $discoverAllDataObjects;
+        $this->dataReplacesModel = $dataReplacesModel;
 
         // Initialize all components
         $this->typeConverter = new TypeScriptTypeConverter;
         $this->importManager = new ImportManager;
         $this->dataObjectResolver = new DataObjectResolver;
         $this->dataObjectProcessor = new DataObjectProcessor($this->typeConverter, $this->dataObjectResolver);
+        $this->dataClassResolver = new DataClassResolver($dataNamespaces, $dataForModel);
+        $this->dataClassProcessor = new DataClassProcessor(
+            new DataClassAnalyzer(new PhpToTypeScriptConverter($this->dataObjectResolver), $this->dataClassResolver),
+            $this->dataClassResolver,
+        );
         $this->modelGenerator = new ModelInterfaceGenerator($this->typeConverter);
         $this->jsonLdGenerator = new JsonLdGenerator;
         $this->fileWriter = new InterfaceFileWriter;
+
+        $this->replacedModelNames = $dataReplacesModel
+            ? $this->dataClassResolver->replacedModelShortNames()
+            : [];
     }
 
     /**
@@ -137,7 +182,7 @@ class Convert
      *
      * @param  string  $path  The absolute path where the file will be created
      *
-     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
+     * @throws FileNotFoundException
      */
     public function generateFile(string $path): void
     {
@@ -184,10 +229,12 @@ class Convert
     public function getInterfaceUnits(): array
     {
         $this->processDataObjects();
+        $this->processDataClasses();
         $this->processModels();
 
         $units = array_merge(
             $this->dataObjectProcessor->getUnits(),
+            $this->dataClassProcessor->getUnits(),
             $this->modelGenerator->getUnits(),
         );
 
@@ -217,6 +264,7 @@ class Convert
         $output = $this->generateHeader();
         $output .= $this->generateImports();
         $output .= $this->processDataObjects();
+        $output .= $this->processDataClasses();
         $output .= $this->processModels();
 
         return $output;
@@ -305,15 +353,48 @@ class Convert
     }
 
     /**
+     * Process every spatie/laravel-data style DTO found under the configured
+     * `data_namespaces`, emitting an `I{ClassName}` interface for each and for
+     * every nested DTO they reference.
+     *
+     * @return string The DTO interface definitions
+     */
+    private function processDataClasses(): string
+    {
+        if ($this->dataClassResolver->getNamespaces() === []) {
+            return '';
+        }
+
+        foreach ($this->dataClassResolver->listDataClassesInNamespaces() as $dataClass) {
+            $this->dataClassProcessor->enqueue($dataClass);
+        }
+
+        while ($this->dataClassProcessor->hasPending()) {
+            $dataClass = $this->dataClassProcessor->getNextPending();
+            if ($dataClass !== null) {
+                $this->dataClassProcessor->process($dataClass);
+            }
+        }
+
+        return $this->dataClassProcessor->getOutput();
+    }
+
+    /**
      * Process all models in the schema.
      *
-     * Generates TypeScript interfaces for all Laravel models.
+     * Generates TypeScript interfaces for all Laravel models. When
+     * `data_replaces_model` is enabled, models mapped to a DTO are skipped so
+     * their DTO interface becomes the single source of truth.
      *
      * @return string The model interface definitions
      */
     private function processModels(): string
     {
         foreach ($this->schema as $model) {
+            if ($this->dataReplacesModel && in_array($model['model'], $this->replacedModelNames, true)) {
+                continue;
+            }
+
             $this->modelGenerator->processModel($model);
         }
 

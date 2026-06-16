@@ -27,6 +27,10 @@ When `discover_all_dataobjects` is enabled, the directories backing your
 `dataobject_namespaces` are watched too, so editing a standalone DataObject also
 triggers regeneration.
 
+Likewise, when `data_namespaces` is configured, the directories backing those
+namespaces are watched, so editing a spatie/laravel-data style DTO also triggers
+regeneration.
+
 ## Typical workflow
 
 Open two terminal windows:

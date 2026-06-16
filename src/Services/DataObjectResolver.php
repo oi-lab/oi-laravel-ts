@@ -2,8 +2,8 @@
 
 namespace OiLab\OiLaravelTs\Services;
 
-use Composer\Autoload\ClassLoader;
 use OiLab\OiLaravelTs\Exceptions\DataObjectNameCollisionException;
+use OiLab\OiLaravelTs\Services\Concerns\ScansPsr4Namespaces;
 use ReflectionClass;
 use ReflectionException;
 
@@ -17,6 +17,8 @@ use ReflectionException;
  */
 class DataObjectResolver
 {
+    use ScansPsr4Namespaces;
+
     /**
      * @var array<int, string>
      */
@@ -122,93 +124,6 @@ class DataObjectResolver
         }
 
         return array_values(array_unique($directories));
-    }
-
-    /**
-     * Resolve a namespace to its classes by walking the PSR-4 directory tree.
-     *
-     * @param  array<string, array<int, string>>  $psr4  Prefix => directories map.
-     * @return array<int, string> Fully qualified class names declared under the namespace.
-     */
-    private function classesInNamespace(string $namespace, array $psr4): array
-    {
-        $namespace = trim($namespace, '\\');
-        $directories = $this->directoriesForNamespace($namespace, $psr4);
-        $classes = [];
-
-        foreach ($directories as $directory) {
-            if (! is_dir($directory)) {
-                continue;
-            }
-
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)
-            );
-
-            foreach ($iterator as $file) {
-                if (! $file->isFile() || $file->getExtension() !== 'php') {
-                    continue;
-                }
-
-                $relative = ltrim(str_replace($directory, '', $file->getPathname()), DIRECTORY_SEPARATOR);
-                $relativeClass = str_replace([DIRECTORY_SEPARATOR, '.php'], ['\\', ''], $relative);
-
-                $classes[] = $namespace.'\\'.$relativeClass;
-            }
-        }
-
-        return $classes;
-    }
-
-    /**
-     * Find the directories backing a namespace using the longest matching PSR-4 prefix.
-     *
-     * @param  array<string, array<int, string>>  $psr4  Prefix => directories map.
-     * @return array<int, string>
-     */
-    private function directoriesForNamespace(string $namespace, array $psr4): array
-    {
-        $namespace = trim($namespace, '\\').'\\';
-        $bestPrefix = null;
-
-        foreach ($psr4 as $prefix => $directories) {
-            if (str_starts_with($namespace, $prefix) && (
-                $bestPrefix === null || strlen($prefix) > strlen($bestPrefix)
-            )) {
-                $bestPrefix = $prefix;
-            }
-        }
-
-        if ($bestPrefix === null) {
-            return [];
-        }
-
-        $suffix = substr($namespace, strlen($bestPrefix));
-        $subPath = str_replace('\\', DIRECTORY_SEPARATOR, $suffix);
-
-        return array_map(
-            static fn (string $base): string => rtrim($base, DIRECTORY_SEPARATOR).
-                ($subPath !== '' ? DIRECTORY_SEPARATOR.rtrim($subPath, DIRECTORY_SEPARATOR) : ''),
-            $psr4[$bestPrefix]
-        );
-    }
-
-    /**
-     * Collect the PSR-4 prefix map from every registered Composer ClassLoader.
-     *
-     * @return array<string, array<int, string>>
-     */
-    private function getPsr4Prefixes(): array
-    {
-        $prefixes = [];
-
-        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
-            foreach ($loader->getPrefixesPsr4() as $prefix => $directories) {
-                $prefixes[$prefix] = array_merge($prefixes[$prefix] ?? [], $directories);
-            }
-        }
-
-        return $prefixes;
     }
 
     /**

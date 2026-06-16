@@ -9,6 +9,14 @@ order: 4
 
 The package automatically generates TypeScript interfaces for PHP DataObjects (also called Value Objects or DTOs) when they are used as custom casts.
 
+> **DataObjects vs spatie/laravel-data DTOs.** This page covers *value objects*
+> resolved through the `fromArray()`/`toArray()` contract and the
+> `dataobject_namespaces` option — typically used inside custom casts. For
+> spatie/laravel-data style DTOs (camelCase props, backed enums, `fromModel()`
+> factories, model replacement), see the `data_namespaces`, `data_replaces_model`
+> and `data_for_model` options in [Configuration](/configuration/configuration).
+> The two mechanisms are independent.
+
 ## What is a DataObject?
 
 A DataObject is a class that exposes both `fromArray()` and `toArray()` methods. The package uses these as a signal that the class is a structured data container that should get its own TypeScript interface.

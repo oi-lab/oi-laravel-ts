@@ -2,10 +2,12 @@
 
 namespace OiLab\OiLaravelTs\Console\Commands;
 
-use OiLab\OiLaravelTs\Services\Convert;
-use OiLab\OiLaravelTs\Services\Eloquent;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
+use OiLab\OiLaravelTs\Services\Convert;
+use OiLab\OiLaravelTs\Services\DataClassResolver;
+use OiLab\OiLaravelTs\Services\DataObjectResolver;
+use OiLab\OiLaravelTs\Services\Eloquent;
 
 class GenerateTypescriptCommand extends Command
 {
@@ -69,11 +71,21 @@ class GenerateTypescriptCommand extends Command
         $paths = [app_path('Models')];
 
         if ($config['discover_all_dataobjects'] ?? false) {
-            $resolver = new \OiLab\OiLaravelTs\Services\DataObjectResolver(
+            $resolver = new DataObjectResolver(
                 $config['dataobject_namespaces'] ?? null
             );
 
             foreach ($resolver->resolveNamespaceDirectories() as $directory) {
+                $paths[] = $directory;
+            }
+        }
+
+        if (! empty($config['data_namespaces'])) {
+            $dataResolver = new DataClassResolver(
+                $config['data_namespaces']
+            );
+
+            foreach ($dataResolver->resolveNamespaceDirectories() as $directory) {
                 $paths[] = $directory;
             }
         }
@@ -138,6 +150,9 @@ class GenerateTypescriptCommand extends Command
             $schema,
             $config['with_json_ld'],
             $config['discover_all_dataobjects'] ?? false,
+            $config['data_namespaces'] ?? [],
+            $config['data_replaces_model'] ?? false,
+            $config['data_for_model'] ?? [],
         );
 
         if (($config['output_mode'] ?? 'single') === 'multiple') {

@@ -40,6 +40,9 @@ The file `config/oi-laravel-ts.php` exposes these options:
 | `save_schema` | `false` | Write intermediate `storage/app/dev/schema.json` for debugging |
 | `props_with_types` | `[]` | Override specific property types per model |
 | `dataobject_namespaces` | `['App\\DataObjects']` | Namespaces to search when resolving DataObject class names |
+| `data_namespaces` | `[]` | Namespaces holding spatie/laravel-data style DTOs to emit as `I{ClassName}` interfaces |
+| `data_replaces_model` | `false` | When `true`, a model mapped to a DTO no longer emits its own Eloquent interface |
+| `data_for_model` | `[]` | Explicit `model => DTO` map (otherwise inferred from the DTO's `fromModel()` factory) |
 | `custom_props` | `[]` | Inject extra TypeScript properties per model (or globally with `?field`) |
 
 ## TypeScript Interface Naming

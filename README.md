@@ -14,6 +14,7 @@ A Laravel package that automatically generates TypeScript interfaces from your E
 - **Automatic Interface Generation**: Converts Eloquent models to TypeScript interfaces
 - **Relationship Support**: Handles all Laravel relationship types (HasOne, HasMany, BelongsTo, etc.)
 - **Custom Casts**: Supports Laravel custom casts and automatically detects DataObjects
+- **DTO Support**: Emits interfaces for spatie/laravel-data style DTOs (no dependency required), with enum literal unions and nested DTOs
 - **PHPDoc Support**: Reads PHPDoc annotations for complex types
 - **Watch Mode**: Monitor your models directory and regenerate on changes
 - **Namespace Filters**: Exclude third-party models entirely, or promote them to extension interfaces
@@ -39,6 +40,7 @@ This package uses a modular architecture with clear separation of concerns, orga
 - **Convert**: Main orchestrator coordinating the conversion process
 - **TypeScriptTypeConverter**: Handles schema to TypeScript type conversion
 - **DataObjectProcessor**: Processes PHP DataObjects and generates their interfaces
+- **DataClassResolver / DataClassAnalyzer / DataClassProcessor**: Discover, analyze and emit spatie/laravel-data style DTOs
 - **ModelInterfaceGenerator**: Generates TypeScript interfaces for Laravel models
 - **ImportManager**: Manages TypeScript import statements
 - **JsonLdGenerator**: Generates JSON-LD support interfaces
@@ -110,6 +112,15 @@ return [
 
     // Save intermediate schema.json for debugging
     'save_schema' => false,
+
+    // Namespaces holding spatie/laravel-data style DTOs to emit as I{ClassName}
+    'data_namespaces' => [],
+
+    // When true, a model mapped to a DTO no longer emits its own Eloquent interface
+    'data_replaces_model' => false,
+
+    // Explicit model => DTO map (otherwise inferred from the DTO's fromModel() factory)
+    'data_for_model' => [],
 
     // Define specific types for model properties
     'props_with_types' => [],
@@ -235,6 +246,65 @@ export interface IPage {
 }
 ```
 
+### DTO Support (spatie/laravel-data)
+
+Register the namespaces holding your Data Transfer Objects and every DTO is
+emitted as an `I{ClassName}` interface. Detection is structural — **no dependency
+on `spatie/laravel-data` is required**:
+
+```php
+'data_namespaces' => [
+    'App\\Data',
+],
+```
+
+```php
+// App\Data\Knowledge\KnowledgeData
+class KnowledgeData extends \Spatie\LaravelData\Data
+{
+    public function __construct(
+        public readonly string $id,
+        public readonly KnowledgeState $state,   // backed enum
+        public readonly ?KnowledgeSourceData $source,   // nested DTO
+        /** @var KnowledgeTagData[]|null */
+        public readonly ?array $tags,
+        public readonly bool $isActive = true,
+    ) {}
+
+    public static function fromModel(Knowledge $knowledge): self { /* ... */ }
+}
+```
+
+```typescript
+export interface IKnowledgeData {
+    id: string;
+    state: 'draft' | 'published' | 'archived';
+    source?: IKnowledgeSourceData;
+    tags?: IKnowledgeTagData[];
+    isActive?: boolean;
+}
+```
+
+Property names are kept verbatim (camelCase), backed enums become literal unions,
+nested DTOs become `I{Name}`, and typed arrays declared via a property
+`@var Foo[]` annotation become `IFoo[]`.
+
+By default DTO interfaces coexist with the Eloquent model interfaces. To make a
+DTO the single source of truth for its model — suppressing the model's own
+`I{Model}` interface — enable `data_replaces_model`. The model is inferred from
+the DTO's `fromModel()` factory, or set explicitly via `data_for_model`:
+
+```php
+'data_replaces_model' => true,
+'data_for_model' => [
+    App\Models\Knowledge::class => App\Data\Knowledge\KnowledgeData::class,
+],
+```
+
+> Note: with `data_replaces_model` enabled, a relationship on another model that
+> points to a replaced model will reference an interface that is no longer
+> generated.
+
 ### Namespace Filters
 
 Exclude third-party or package models from the schema entirely:
@@ -342,7 +412,7 @@ export default function Dashboard({ user }: Props) {
 
 ## Testing
 
-This package includes comprehensive test coverage with **131 tests** and **322 assertions**.
+This package includes comprehensive test coverage with **142 tests** and **344 assertions**.
 
 ### Run Tests
 
@@ -365,6 +435,7 @@ vendor/bin/pest --coverage
 - ✅ Relationship detection (HasMany, BelongsTo, etc.)
 - ✅ Custom cast resolution
 - ✅ DataObject handling
+- ✅ DTO (spatie/laravel-data) generation, enums and nested DTOs
 - ✅ TypeScript interface generation
 - ✅ Namespace exclusion and extension interfaces
 - ✅ UUID / ULID primary key type resolution

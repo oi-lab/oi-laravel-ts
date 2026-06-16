@@ -127,6 +127,65 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Data Namespaces (spatie/laravel-data style DTOs)
+    |--------------------------------------------------------------------------
+    |
+    | Namespaces holding Data Transfer Objects (DTOs) such as those built on
+    | spatie/laravel-data. Every class found under these namespaces that has a
+    | constructor with promoted properties is emitted as an `I{ClassName}`
+    | interface (e.g. `App\Data\Knowledge\KnowledgeData` => `IKnowledgeData`).
+    |
+    | Detection is structural — no dependency on spatie/laravel-data is
+    | required. Property names are kept verbatim (camelCase), backed enums are
+    | emitted as literal unions, nested DTOs as `I{Name}`, and typed arrays
+    | declared through a property `@var Foo[]` annotation as `IFoo[]`.
+    |
+    | This is fully opt-in: an empty list keeps the previous behavior unchanged.
+    | The `dataobject_namespaces` key above is a distinct, untouched mechanism
+    | for value objects resolved by short name (the `fromArray()`/`toArray()`
+    | contract).
+    |
+    */
+    'data_namespaces' => [
+        // 'App\\Data',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Data Replaces Model
+    |--------------------------------------------------------------------------
+    |
+    | When false (default), DTO interfaces are emitted *in addition* to the
+    | Eloquent model interfaces — `IKnowledge` (model) and `IKnowledgeData`
+    | (DTO) coexist.
+    |
+    | When true, any model that is mapped to a DTO no longer emits its Eloquent
+    | `I{Model}` interface: the DTO becomes the single source of truth for that
+    | model's shape. The model is identified from the first parameter of the
+    | DTO's `fromModel()` factory, or from `data_for_model` below.
+    |
+    | Note: with this enabled, a relationship on another model that points to a
+    | replaced model will reference an interface that is no longer generated.
+    |
+    */
+    'data_replaces_model' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Data For Model (explicit DTO <=> model mapping)
+    |--------------------------------------------------------------------------
+    |
+    | Explicit overrides used to associate a DTO with its model when the DTO has
+    | no `fromModel(Model $m)` factory to introspect, or to force a specific
+    | pairing. Keyed by model class, valued by DTO class.
+    |
+    */
+    'data_for_model' => [
+        // App\Models\Knowledge::class => App\Data\Knowledge\KnowledgeData::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Discover All DataObjects
     |--------------------------------------------------------------------------
     |

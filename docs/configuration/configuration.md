@@ -136,6 +136,63 @@ a model cast. See [DataObjects](/usage/data-objects) for details.
 'discover_all_dataobjects' => false,
 ```
 
+## data_namespaces
+
+**Type:** `array` — **Default:** `[]`
+
+Namespaces holding spatie/laravel-data style Data Transfer Objects (DTOs). Every
+class found under these namespaces that has a constructor with promoted
+properties is emitted as an `I{ClassName}` interface (e.g.
+`App\Data\Knowledge\KnowledgeData` becomes `IKnowledgeData`).
+
+Detection is structural — **no dependency on spatie/laravel-data is required**.
+Property names are kept verbatim (camelCase), backed enums become literal unions
+(`'draft' | 'published'`), nested DTOs become `I{Name}`, and typed arrays
+declared through a property `@var Foo[]` annotation become `IFoo[]`. Namespaces
+are scanned recursively and nested DTOs are resolved automatically.
+
+This is fully opt-in: an empty list keeps the previous behavior unchanged. It is
+a distinct mechanism from `dataobject_namespaces`, which resolves value objects
+by short name through the `fromArray()`/`toArray()` contract.
+
+```php
+'data_namespaces' => [
+    'App\\Data',
+],
+```
+
+## data_replaces_model
+
+**Type:** `bool` — **Default:** `false`
+
+When `false` (default), DTO interfaces are emitted *in addition* to the Eloquent
+model interfaces — `IKnowledge` (model) and `IKnowledgeData` (DTO) coexist.
+
+When `true`, any model mapped to a DTO no longer emits its Eloquent `I{Model}`
+interface: the DTO becomes the single source of truth for that model's shape. The
+model is identified from the first parameter of the DTO's `fromModel()` factory,
+or from `data_for_model`.
+
+> Note: with this enabled, a relationship on another model that points to a
+> replaced model will reference an interface that is no longer generated.
+
+```php
+'data_replaces_model' => false,
+```
+
+## data_for_model
+
+**Type:** `array` — **Default:** `[]`
+
+Explicit `model => DTO` overrides, used when a DTO has no `fromModel(Model $m)`
+factory to introspect, or to force a specific pairing.
+
+```php
+'data_for_model' => [
+    App\Models\Knowledge::class => App\Data\Knowledge\KnowledgeData::class,
+],
+```
+
 ## excluded_namespaces
 
 **Type:** `array` — **Default:** `[]`
