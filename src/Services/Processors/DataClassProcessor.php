@@ -5,6 +5,7 @@ namespace OiLab\OiLaravelTs\Services\Processors;
 use OiLab\OiLaravelTs\Services\DataClassResolver;
 use OiLab\OiLaravelTs\Services\Eloquent\DataClassAnalyzer;
 use OiLab\OiLaravelTs\Services\Generators\InterfaceUnit;
+use OiLab\OiLaravelTs\Services\Support\PropertyRenderer;
 use ReflectionClass;
 use ReflectionException;
 
@@ -38,17 +39,22 @@ class DataClassProcessor
      */
     private array $units = [];
 
+    private readonly PropertyRenderer $renderer;
+
     public function __construct(
         private readonly DataClassAnalyzer $analyzer,
         private readonly DataClassResolver $resolver,
-    ) {}
+        ?PropertyRenderer $renderer = null,
+    ) {
+        $this->renderer = $renderer ?? new PropertyRenderer;
+    }
 
     /**
      * Enqueue a DTO class for processing.
      */
     public function enqueue(string $dataClass): void
     {
-        $shortName = class_basename($dataClass);
+        $shortName = $this->resolver->shortName($dataClass);
 
         if (in_array($shortName, $this->processed, true) || in_array($dataClass, $this->pending, true)) {
             return;
@@ -72,7 +78,7 @@ class DataClassProcessor
      */
     public function process(string $dataClass): void
     {
-        $shortName = class_basename($dataClass);
+        $shortName = $this->resolver->shortName($dataClass);
 
         if (in_array($shortName, $this->processed, true)) {
             return;
@@ -100,11 +106,9 @@ class DataClassProcessor
         $body = "export interface {$interfaceName} {\n";
 
         foreach ($properties as $property) {
-            $optional = $property['nullable'] || $property['hasDefault'];
-
             $this->detectNested($property['type']);
 
-            $body .= "    {$property['name']}".($optional ? '?' : '').": {$property['type']};\n";
+            $body .= '    '.$this->renderer->render($property)."\n";
         }
 
         $body .= '}';

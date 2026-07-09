@@ -5,6 +5,7 @@ namespace OiLab\OiLaravelTs\Services\Processors;
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
 use OiLab\OiLaravelTs\Services\DataObjectResolver;
 use OiLab\OiLaravelTs\Services\Generators\InterfaceUnit;
+use OiLab\OiLaravelTs\Services\Support\PropertyRenderer;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -41,17 +42,22 @@ class DataObjectProcessor
 
     private DataObjectResolver $dataObjectResolver;
 
+    private readonly PropertyRenderer $renderer;
+
     /**
      * Constructor.
      *
      * @param  TypeScriptTypeConverter  $typeConverter  The type converter instance
      * @param  DataObjectResolver|null  $dataObjectResolver  Resolver used to locate DataObject classes
+     * @param  PropertyRenderer|null  $renderer  Renders each interface member
      */
     public function __construct(
         private readonly TypeScriptTypeConverter $typeConverter,
         ?DataObjectResolver $dataObjectResolver = null,
+        ?PropertyRenderer $renderer = null,
     ) {
         $this->dataObjectResolver = $dataObjectResolver ?? new DataObjectResolver;
+        $this->renderer = $renderer ?? new PropertyRenderer;
     }
 
     /**
@@ -90,14 +96,10 @@ class DataObjectProcessor
         $body = "export interface {$interfaceName} {\n";
 
         foreach ($field['properties'] as $property) {
-            $propName = $property['name'];
-            $propType = $property['type'];
-            $optional = $property['nullable'] || $property['hasDefault'];
-
             // Detect nested DataObjects
-            $this->detectNestedDataObjects($propType);
+            $this->detectNestedDataObjects($property['type']);
 
-            $body .= "    {$propName}".($optional ? '?' : '').": {$propType};\n";
+            $body .= '    '.$this->renderer->render($property)."\n";
         }
 
         $body .= '}';
@@ -209,8 +211,6 @@ class DataObjectProcessor
 
             foreach ($parameters as $parameter) {
                 $paramName = $parameter->getName();
-                $nullable = $parameter->allowsNull();
-                $hasDefault = $parameter->isDefaultValueAvailable();
                 $tsType = 'unknown';
 
                 // Use PHPDoc if available
@@ -223,8 +223,13 @@ class DataObjectProcessor
                 // Detect nested DataObjects
                 $this->detectNestedDataObjects($tsType);
 
-                $optional = $nullable || $hasDefault;
-                $body .= "    {$paramName}".($optional ? '?' : '').": {$tsType};\n";
+                $body .= '    '.$this->renderer->render([
+                    'name' => $paramName,
+                    'type' => $tsType,
+                    'nullable' => $parameter->allowsNull(),
+                    'hasDefault' => $parameter->isDefaultValueAvailable(),
+                    'optional' => false,
+                ])."\n";
             }
 
             $body .= '}';

@@ -2,6 +2,7 @@
 
 namespace OiLab\OiLaravelTs\Services;
 
+use Illuminate\Support\Collection;
 use OiLab\OiLaravelTs\Services\Eloquent\CastTypeResolver;
 use OiLab\OiLaravelTs\Services\Eloquent\DataObjectAnalyzer;
 use OiLab\OiLaravelTs\Services\Eloquent\ModelDiscovery;
@@ -9,7 +10,6 @@ use OiLab\OiLaravelTs\Services\Eloquent\PhpToTypeScriptConverter;
 use OiLab\OiLaravelTs\Services\Eloquent\RelationshipResolver;
 use OiLab\OiLaravelTs\Services\Eloquent\SchemaBuilder;
 use OiLab\OiLaravelTs\Services\Eloquent\TypeExtractor;
-use Illuminate\Support\Collection;
 
 /**
  * Eloquent Schema Service
@@ -64,6 +64,13 @@ class Eloquent
      * Whether to recursively discover models referenced by relationships.
      */
     private static bool $discoverRelatedModels = true;
+
+    /**
+     * Namespace prefixes whose models join the schema wholesale.
+     *
+     * @var array<int, string>
+     */
+    private static array $includedModelNamespaces = [];
 
     /**
      * Namespace prefixes whose models are excluded entirely from the schema.
@@ -196,6 +203,30 @@ class Eloquent
     }
 
     /**
+     * Set namespace prefixes whose Eloquent models are added to the schema as if
+     * they lived in app/Models.
+     *
+     * `discover_related_models` only reaches a model that some other model in the
+     * schema points at. A package model nothing references stays invisible; list
+     * its namespace here to generate its interface anyway. `excluded_namespaces`
+     * still wins over this list.
+     *
+     * @param  array<int, string>  $namespaces  Fully-qualified namespace prefixes
+     *
+     * @example
+     * ```php
+     * Eloquent::setIncludedModelNamespaces([
+     *     'OiLab\\OiLaravelPublish\\Models',
+     *     'OiLab\\OiLaravelAttachments\\Models',
+     * ]);
+     * ```
+     */
+    public static function setIncludedModelNamespaces(array $namespaces): void
+    {
+        self::$includedModelNamespaces = $namespaces;
+    }
+
+    /**
      * Set namespace prefixes whose models are excluded entirely from the schema.
      *
      * Models in these namespaces are skipped even when reached through a relation.
@@ -306,10 +337,7 @@ class Eloquent
      */
     public static function getModels(): array
     {
-        $discovery = new ModelDiscovery;
-        $discovery->setAdditionalModels(self::$additionalModels);
-
-        return $discovery->discoverModels();
+        return self::createModelDiscovery()->discoverModels();
     }
 
     /**
@@ -369,12 +397,9 @@ class Eloquent
      */
     private static function createSchemaBuilder(): SchemaBuilder
     {
-        $discovery = new ModelDiscovery;
-        $discovery->setAdditionalModels(self::$additionalModels);
-
         $typeExtractor = self::createTypeExtractor();
 
-        $builder = new SchemaBuilder($discovery, $typeExtractor);
+        $builder = new SchemaBuilder(self::createModelDiscovery(), $typeExtractor);
         $builder->setCustomProps(self::$customProps);
         $builder->setWithCounts(self::$withCounts);
         $builder->setDiscoverRelatedModels(self::$discoverRelatedModels);
@@ -382,6 +407,18 @@ class Eloquent
         $builder->setExtendedNamespaces(self::$extendedNamespaces);
 
         return $builder;
+    }
+
+    /**
+     * Create and configure the model discovery service.
+     */
+    private static function createModelDiscovery(): ModelDiscovery
+    {
+        $discovery = new ModelDiscovery;
+        $discovery->setAdditionalModels(self::$additionalModels);
+        $discovery->setIncludedNamespaces(self::$includedModelNamespaces);
+
+        return $discovery;
     }
 
     /**

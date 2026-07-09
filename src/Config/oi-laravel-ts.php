@@ -152,6 +152,57 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Data Aliases (disambiguate colliding DTO short names)
+    |--------------------------------------------------------------------------
+    |
+    | Two DTOs from different namespaces may share a short class name — say
+    | `App\Data\ContentData` and a package's `...\Data\Blocks\ContentData`. Both
+    | would claim `IContentData`, so generation aborts with a
+    | DataObjectNameCollisionException.
+    |
+    | Map a DTO to a distinct interface base name (without the `I` prefix) to
+    | resolve the conflict without renaming the PHP class. The alias is the name
+    | used everywhere: the emitted interface, and any nested reference to it
+    | from another DTO.
+    |
+    |   'data_aliases' => [
+    |       OiLab\OiLaravelPublish\Data\Blocks\ContentData::class => 'PublishContentData',
+    |   ],
+    |
+    | emits `IPublishContentData` and leaves `IContentData` to App\Data\ContentData.
+    |
+    */
+    'data_aliases' => [
+        // Example:
+        // OiLab\OiLaravelPublish\Data\Blocks\ContentData::class => 'PublishContentData',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Data Nullable Style
+    |--------------------------------------------------------------------------
+    |
+    | How nullability is rendered on DTO and DataObject interfaces (the ones
+    | produced from `data_namespaces` and `dataobject_namespaces`). Model
+    | interfaces are unaffected.
+    |
+    | - 'null' (default): `?` and `| null` describe two different facts.
+    |       `?string $x = null`      => `x: string | null;`
+    |       `int $x = 3`             => `x: number;`
+    |       `string|Optional $x`     => `x?: string;`
+    |   This matches the JSON a DTO actually produces: a serializer emits every
+    |   declared property, so a default value never makes a key absent — only an
+    |   `Optional` / `Lazy` marker does.
+    |
+    | - 'optional' (legacy): any nullable or defaulted property is rendered `?`
+    |   and `| null` is never emitted. Keep this while consumers still feed DTO
+    |   interfaces into form inputs that expect every field to be optional.
+    |
+    */
+    'data_nullable_style' => 'null',
+
+    /*
+    |--------------------------------------------------------------------------
     | Data Replaces Model
     |--------------------------------------------------------------------------
     |
@@ -198,6 +249,33 @@ return [
     |
     */
     'discover_all_dataobjects' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Included Model Namespaces
+    |--------------------------------------------------------------------------
+    |
+    | Namespaces whose Eloquent models are added to the schema as if they lived
+    | in app/Models — with their relationships, their `_count` fields, and their
+    | own discovery of related models.
+    |
+    | `discover_related_models` only reaches a model that some other model in the
+    | schema already points at. A package model that nothing in the application
+    | references therefore never gets an interface. List its namespace here when
+    | a controller hands that model straight to the front end.
+    |
+    |   'included_model_namespaces' => [
+    |       'OiLab\\OiLaravelPublish\\Models',
+    |       'OiLab\\OiLaravelAttachments\\Models',
+    |   ],
+    |
+    | `excluded_namespaces` below still wins over this list.
+    |
+    */
+    'included_model_namespaces' => [
+        // Example:
+        // 'OiLab\\OiLaravelPublish\\Models',
+    ],
 
     /*
     |--------------------------------------------------------------------------

@@ -2,30 +2,46 @@
 
 namespace OiLab\OiLaravelTs\Services\Eloquent;
 
+use Illuminate\Database\Eloquent\Model;
+use OiLab\OiLaravelTs\Services\Concerns\ScansPsr4Namespaces;
+use ReflectionClass;
+use ReflectionException;
+
 /**
  * Model Discovery Service
  *
  * Responsible for discovering and collecting all Laravel Eloquent models
- * in the application. Scans the app/Models directory and includes any
- * additional models specified via configuration.
+ * in the application. Scans the app/Models directory, walks any namespace
+ * listed as included, and adds any model specified explicitly.
  *
  *
  * @example
  * ```php
  * $discovery = new ModelDiscovery();
  * $discovery->setAdditionalModels([CustomModel::class]);
+ * $discovery->setIncludedNamespaces(['OiLab\OiLaravelPublish\Models']);
  * $models = $discovery->discoverModels();
  * // Returns: [['model' => 'User', 'namespace' => 'App\Models\User'], ...]
  * ```
  */
 class ModelDiscovery
 {
+    use ScansPsr4Namespaces;
+
     /**
      * Additional model classes to include beyond the app/Models directory.
      *
      * @var array<int, class-string>
      */
     private array $additionalModels = [];
+
+    /**
+     * Namespace prefixes whose Eloquent models join the schema as if they lived
+     * in app/Models.
+     *
+     * @var array<int, string>
+     */
+    private array $includedNamespaces = [];
 
     /**
      * Set additional model classes to include in the discovery process.
@@ -41,10 +57,24 @@ class ModelDiscovery
     }
 
     /**
+     * Set namespaces whose Eloquent models are added to the schema wholesale.
+     *
+     * This is the positive counterpart to `excluded_namespaces`: it makes a
+     * package's models discoverable even when no application model points at
+     * them through a relationship.
+     *
+     * @param  array<int, string>  $namespaces  Fully-qualified namespace prefixes
+     */
+    public function setIncludedNamespaces(array $namespaces): void
+    {
+        $this->includedNamespaces = $namespaces;
+    }
+
+    /**
      * Discover all Eloquent models in the application.
      *
-     * Scans the app/Models directory for model files and includes
-     * any additional models specified via setAdditionalModels().
+     * Scans the app/Models directory for model files, walks every included
+     * namespace, and includes any model specified via setAdditionalModels().
      *
      * @return array<int, array{model: string, namespace: class-string}> Array of discovered models with their metadata
      *
@@ -64,10 +94,73 @@ class ModelDiscovery
         // Scan app/Models directory
         $models = array_merge($models, $this->scanModelsDirectory());
 
+        // Walk the included package namespaces
+        $models = array_merge($models, $this->scanIncludedNamespaces());
+
         // Add additional models
         $models = array_merge($models, $this->processAdditionalModels());
 
         return $models;
+    }
+
+    /**
+     * Walk every included namespace and collect the Eloquent models it declares.
+     *
+     * Non-model classes, abstract models and unloadable files are skipped.
+     * Exclusion is not applied here — SchemaBuilder drops excluded-namespace
+     * models later, whichever way they entered the queue.
+     *
+     * @return array<int, array{model: string, namespace: class-string}>
+     */
+    private function scanIncludedNamespaces(): array
+    {
+        if ($this->includedNamespaces === []) {
+            return [];
+        }
+
+        $psr4 = $this->getPsr4Prefixes();
+        $models = [];
+
+        foreach ($this->includedNamespaces as $namespace) {
+            foreach ($this->classesInNamespace(trim($namespace, '\\'), $psr4) as $class) {
+                if (! $this->isConcreteModel($class)) {
+                    continue;
+                }
+
+                $models[] = [
+                    'model' => class_basename($class),
+                    'namespace' => $class,
+                ];
+            }
+        }
+
+        return $models;
+    }
+
+    /**
+     * Whether a class is an instantiable Eloquent model.
+     */
+    private function isConcreteModel(string $class): bool
+    {
+        if (! class_exists($class) || ! is_subclass_of($class, Model::class)) {
+            return false;
+        }
+
+        try {
+            return ! (new ReflectionClass($class))->isAbstract();
+        } catch (ReflectionException) {
+            return false;
+        }
+    }
+
+    /**
+     * Get the included namespace prefixes.
+     *
+     * @return array<int, string>
+     */
+    public function getIncludedNamespaces(): array
+    {
+        return $this->includedNamespaces;
     }
 
     /**

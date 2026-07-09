@@ -104,6 +104,9 @@ return [
     // (incl. models attached through traits, e.g. spatie/laravel-permission)
     'discover_related_models' => true,
 
+    // Add every Eloquent model of these namespaces to the schema, as if in app/Models
+    'included_model_namespaces' => [],
+
     // Exclude models in these namespaces entirely (incl. relation fields pointing to them)
     'excluded_namespaces' => [],
 
@@ -115,6 +118,13 @@ return [
 
     // Namespaces holding spatie/laravel-data style DTOs to emit as I{ClassName}
     'data_namespaces' => [],
+
+    // Give a DTO a distinct interface name when two share a short class name
+    'data_aliases' => [],
+
+    // 'null': `?` means "key may be absent", `| null` means "value may be null"
+    // 'optional': legacy — nullable or defaulted properties all render as `?`
+    'data_nullable_style' => 'null',
 
     // When true, a model mapped to a DTO no longer emits its own Eloquent interface
     'data_replaces_model' => false,
@@ -268,6 +278,7 @@ class KnowledgeData extends \Spatie\LaravelData\Data
         public readonly ?KnowledgeSourceData $source,   // nested DTO
         /** @var KnowledgeTagData[]|null */
         public readonly ?array $tags,
+        public readonly string|Optional $slug,   // may be absent from the payload
         public readonly bool $isActive = true,
     ) {}
 
@@ -279,15 +290,23 @@ class KnowledgeData extends \Spatie\LaravelData\Data
 export interface IKnowledgeData {
     id: string;
     state: 'draft' | 'published' | 'archived';
-    source?: IKnowledgeSourceData;
-    tags?: IKnowledgeTagData[];
-    isActive?: boolean;
+    source: IKnowledgeSourceData | null;
+    tags: IKnowledgeTagData[] | null;
+    slug?: string;
+    isActive: boolean;
 }
 ```
 
 Property names are kept verbatim (camelCase), backed enums become literal unions,
 nested DTOs become `I{Name}`, and typed arrays declared via a property
 `@var Foo[]` annotation become `IFoo[]`.
+
+The interface describes the JSON the DTO **produces**, so `?` and `| null` mean
+different things: `?` marks a key that may be **absent** (an `Optional` / `Lazy`
+property), `| null` a key that is always present but may hold `null`. A default
+value makes nothing optional. See
+[`data_nullable_style`](/configuration/configuration) to fall back to the legacy
+rendering.
 
 By default DTO interfaces coexist with the Eloquent model interfaces. To make a
 DTO the single source of truth for its model — suppressing the model's own

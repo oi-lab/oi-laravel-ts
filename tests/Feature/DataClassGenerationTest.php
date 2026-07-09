@@ -36,11 +36,11 @@ describe('Data class (DTO) generation', function () {
             ->and($output)->toContain('isActive: boolean;');
     });
 
-    it('marks nullable and defaulted properties as optional', function () {
+    it('marks a nullable property as nullable, and a defaulted one as neither', function () {
         $output = generateData([DATA_NS]);
 
-        expect($output)->toContain('age?: number;')
-            ->and($output)->toContain('version?: string;');
+        expect($output)->toContain('age: number | null;')
+            ->and($output)->toContain('version: string;');
     });
 
     it('converts a backed string enum to a literal union', function () {
@@ -58,21 +58,21 @@ describe('Data class (DTO) generation', function () {
     it('references a nested DTO and emits it (including sub-namespaces)', function () {
         $output = generateData([DATA_NS]);
 
-        expect($output)->toContain('address?: IGeoData;')
+        expect($output)->toContain('address: IGeoData | null;')
             ->and($output)->toContain('export interface IGeoData');
     });
 
     it('types a property @var array of DTOs as IFoo[]', function () {
         $output = generateData([DATA_NS]);
 
-        expect($output)->toContain('tags?: ITagData[];')
+        expect($output)->toContain('tags: ITagData[] | null;')
             ->and($output)->toContain('export interface ITagData');
     });
 
     it('types a property @var array of primitives natively', function () {
         $output = generateData([DATA_NS]);
 
-        expect($output)->toContain('roles?: string[];');
+        expect($output)->toContain('roles: string[] | null;');
     });
 
     it('coexists with the Eloquent model interface by default', function () {

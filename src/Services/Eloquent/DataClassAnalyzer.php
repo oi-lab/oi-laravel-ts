@@ -22,18 +22,40 @@ use ReflectionUnionType;
  *
  * Backed enums become literal unions, nested DTOs become `I{Name}` references,
  * and typed arrays become `IFoo[]`.
+ *
+ * Nullability and optionality are reported as two independent facts:
+ *   - `nullable`: the property accepts null, so its JSON value may be null.
+ *   - `optional`: the property is declared through an `Optional` / `Lazy`
+ *     marker, so its key may be missing from the JSON altogether.
+ *
+ * A default value implies neither: a serializer emits every declared property.
  */
 class DataClassAnalyzer
 {
+    /**
+     * Types that make a DTO property genuinely absent from the serialized payload.
+     *
+     * Matched on the fully qualified name or on the short class name, so a
+     * project-local re-export of spatie's markers is recognized too.
+     */
+    public const DEFAULT_OPTIONAL_MARKERS = [
+        'Spatie\\LaravelData\\Optional',
+        'Spatie\\LaravelData\\Lazy',
+    ];
+
+    /**
+     * @param  array<int, string>  $optionalMarkers
+     */
     public function __construct(
         private readonly PhpToTypeScriptConverter $typeConverter,
         private readonly DataClassResolver $dataClassResolver,
+        private readonly array $optionalMarkers = self::DEFAULT_OPTIONAL_MARKERS,
     ) {}
 
     /**
      * Extract properties from a DTO class.
      *
-     * @return array<int, array{name: string, type: string, nullable: bool, hasDefault: bool}>
+     * @return array<int, array{name: string, type: string, nullable: bool, hasDefault: bool, optional: bool}>
      */
     public function extractProperties(ReflectionClass $reflection): array
     {
@@ -49,13 +71,17 @@ class DataClassAnalyzer
         foreach ($constructor->getParameters() as $parameter) {
             $name = $parameter->getName();
             $phpDocType = $this->propertyVarType($reflection, $name) ?? ($paramDocTypes[$name] ?? null);
+            $nativeType = $parameter->getType();
 
             if ($phpDocType !== null) {
                 $tsType = $this->resolveType($phpDocType, $reflection);
-            } elseif (($nativeType = $parameter->getType()) !== null) {
+                $tokens = $this->typeConverter->splitUnionType($phpDocType);
+            } elseif ($nativeType !== null) {
                 $tsType = $this->resolveNativeType($nativeType, $reflection);
+                $tokens = $this->nativeTypeTokens($nativeType);
             } else {
                 $tsType = 'unknown';
+                $tokens = [];
             }
 
             if ($tsType === '') {
@@ -65,8 +91,9 @@ class DataClassAnalyzer
             $properties[] = [
                 'name' => $name,
                 'type' => $tsType,
-                'nullable' => $parameter->allowsNull(),
+                'nullable' => $parameter->allowsNull() || $this->tokensAllowNull($tokens),
                 'hasDefault' => $parameter->isDefaultValueAvailable(),
+                'optional' => $this->tokensContainOptionalMarker($tokens),
             ];
         }
 
@@ -74,7 +101,90 @@ class DataClassAnalyzer
     }
 
     /**
+     * The declared type tokens of a native reflection type, as written in PHP.
+     *
+     * @return array<int, string>
+     */
+    private function nativeTypeTokens(\ReflectionType $type): array
+    {
+        if ($type instanceof ReflectionUnionType) {
+            $tokens = [];
+
+            foreach ($type->getTypes() as $member) {
+                if ($member instanceof ReflectionNamedType) {
+                    $tokens[] = $member->getName();
+                }
+            }
+
+            return $tokens;
+        }
+
+        if ($type instanceof ReflectionNamedType) {
+            return [$type->getName()];
+        }
+
+        return [];
+    }
+
+    /**
+     * Whether a PHPDoc union carries an explicit `null` member. The native type
+     * is covered separately by `ReflectionParameter::allowsNull()`.
+     *
+     * @param  array<int, string>  $tokens
+     */
+    private function tokensAllowNull(array $tokens): bool
+    {
+        foreach ($tokens as $token) {
+            if (strcasecmp(trim($token), 'null') === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, string>  $tokens
+     */
+    private function tokensContainOptionalMarker(array $tokens): bool
+    {
+        foreach ($tokens as $token) {
+            if ($this->isOptionalMarker($token)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a type token denotes an `Optional` / `Lazy` absence marker.
+     */
+    private function isOptionalMarker(string $token): bool
+    {
+        $token = ltrim(trim($token), '\\');
+
+        if ($token === '') {
+            return false;
+        }
+
+        foreach ($this->optionalMarkers as $marker) {
+            $marker = ltrim($marker, '\\');
+
+            if (strcasecmp($token, $marker) === 0
+                || strcasecmp(class_basename($token), class_basename($marker)) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Resolve a native reflection type to TypeScript.
+     *
+     * `null` members and absence markers carry no shape of their own: they are
+     * reported through the `nullable` / `optional` flags instead.
      */
     private function resolveNativeType(\ReflectionType $type, ReflectionClass $context): string
     {
@@ -82,7 +192,9 @@ class DataClassAnalyzer
             $parts = [];
 
             foreach ($type->getTypes() as $member) {
-                if ($member instanceof ReflectionNamedType && $member->getName() !== 'null') {
+                if ($member instanceof ReflectionNamedType
+                    && $member->getName() !== 'null'
+                    && ! $this->isOptionalMarker($member->getName())) {
                     $parts[] = $this->resolveLeaf($member->getName(), $context);
                 }
             }
@@ -91,7 +203,9 @@ class DataClassAnalyzer
         }
 
         if ($type instanceof ReflectionNamedType) {
-            return $this->resolveLeaf($type->getName(), $context);
+            return $this->isOptionalMarker($type->getName())
+                ? ''
+                : $this->resolveLeaf($type->getName(), $context);
         }
 
         return 'unknown';
@@ -105,12 +219,16 @@ class DataClassAnalyzer
     {
         $type = trim($type);
 
+        if ($this->isOptionalMarker($type)) {
+            return '';
+        }
+
         if (str_contains($type, '|')) {
             $parts = [];
 
             foreach ($this->typeConverter->splitUnionType($type) as $part) {
                 $part = trim($part);
-                if ($part === 'null' || $part === '') {
+                if ($part === 'null' || $part === '' || $this->isOptionalMarker($part)) {
                     continue;
                 }
                 $parts[] = $this->resolveType($part, $context);
@@ -162,8 +280,10 @@ class DataClassAnalyzer
                 return $enum;
             }
 
-            if ($this->dataClassResolver->resolveDataClass($fqcn) !== null) {
-                return 'I'.class_basename($fqcn);
+            $dataClass = $this->dataClassResolver->resolveDataClass($fqcn);
+
+            if ($dataClass !== null) {
+                return $this->dataClassResolver->interfaceName($dataClass);
             }
         }
 

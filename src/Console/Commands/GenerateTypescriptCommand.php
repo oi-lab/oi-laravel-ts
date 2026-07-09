@@ -8,6 +8,7 @@ use OiLab\OiLaravelTs\Services\Convert;
 use OiLab\OiLaravelTs\Services\DataClassResolver;
 use OiLab\OiLaravelTs\Services\DataObjectResolver;
 use OiLab\OiLaravelTs\Services\Eloquent;
+use OiLab\OiLaravelTs\Services\Support\PropertyRenderer;
 
 class GenerateTypescriptCommand extends Command
 {
@@ -137,6 +138,7 @@ class GenerateTypescriptCommand extends Command
         Eloquent::setWithCounts($config['with_counts']);
         Eloquent::setCustomProps($config['custom_props']);
         Eloquent::setDiscoverRelatedModels($config['discover_related_models'] ?? true);
+        Eloquent::setIncludedModelNamespaces($config['included_model_namespaces'] ?? []);
         Eloquent::setExcludedNamespaces($config['excluded_namespaces'] ?? []);
         Eloquent::setExtendedNamespaces($config['extended_namespaces'] ?? []);
 
@@ -153,6 +155,8 @@ class GenerateTypescriptCommand extends Command
             $config['data_namespaces'] ?? [],
             $config['data_replaces_model'] ?? false,
             $config['data_for_model'] ?? [],
+            $config['data_nullable_style'] ?? PropertyRenderer::STYLE_NULL,
+            $config['data_aliases'] ?? [],
         );
 
         if (($config['output_mode'] ?? 'single') === 'multiple') {

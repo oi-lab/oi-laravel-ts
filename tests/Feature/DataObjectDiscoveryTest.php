@@ -33,8 +33,8 @@ describe('DataObject autonomous discovery', function () {
 
         expect($output)->toContain('export interface IOrderData')
             ->and($output)->toContain('export interface IOrderLineData')
-            ->and($output)->toContain('lines?: IOrderLineData[];')
-            ->and($output)->toContain('featuredLine?: IOrderLineData;');
+            ->and($output)->toContain('lines: IOrderLineData[];')
+            ->and($output)->toContain('featuredLine: IOrderLineData | null;');
     });
 
     it('discovers DataObjects living in sub-namespaces recursively', function () {

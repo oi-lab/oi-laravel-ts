@@ -21,6 +21,10 @@ use ReflectionNamedType;
  * The resolver also associates a DTO with the Eloquent model it represents,
  * either through an explicit `data_for_model` map or by introspecting the first
  * parameter of the DTO's `fromModel()` factory.
+ *
+ * Finally, it is the single authority on the name a DTO is emitted under. Two
+ * DTOs from different namespaces may share a short class name; `data_aliases`
+ * assigns one of them a distinct name so both can be generated side by side.
  */
 class DataClassResolver
 {
@@ -39,6 +43,14 @@ class DataClassResolver
     private array $modelToData;
 
     /**
+     * Explicit DTO FQCN => interface base name map (no `I` prefix), normalized
+     * without leading backslashes.
+     *
+     * @var array<string, string>
+     */
+    private array $aliases;
+
+    /**
      * Lazily-built short-name => FQCN index of every discovered DTO.
      *
      * @var array<string, string>|null
@@ -48,8 +60,9 @@ class DataClassResolver
     /**
      * @param  array<int, string>|null  $namespaces  Override the configured namespaces. Pass null to read from config.
      * @param  array<string, string>|null  $dataForModel  Explicit model => DTO map. Pass null to read from config.
+     * @param  array<string, string>|null  $aliases  Explicit DTO => interface base name map. Pass null to read from config.
      */
-    public function __construct(?array $namespaces = null, ?array $dataForModel = null)
+    public function __construct(?array $namespaces = null, ?array $dataForModel = null, ?array $aliases = null)
     {
         if ($namespaces === null) {
             $namespaces = function_exists('config')
@@ -73,6 +86,39 @@ class DataClassResolver
         foreach ($dataForModel as $model => $data) {
             $this->modelToData[ltrim((string) $model, '\\')] = ltrim((string) $data, '\\');
         }
+
+        if ($aliases === null) {
+            $aliases = function_exists('config')
+                ? (array) config('oi-laravel-ts.data_aliases', [])
+                : [];
+        }
+
+        $this->aliases = [];
+
+        foreach ($aliases as $dataClass => $alias) {
+            $this->aliases[ltrim((string) $dataClass, '\\')] = ltrim((string) $alias, '\\');
+        }
+    }
+
+    /**
+     * The name a DTO is emitted under, before the `I` prefix.
+     *
+     * Defaults to the short class name, unless `data_aliases` maps the FQCN to
+     * something else.
+     */
+    public function shortName(string $dataClass): string
+    {
+        $dataClass = ltrim($dataClass, '\\');
+
+        return $this->aliases[$dataClass] ?? class_basename($dataClass);
+    }
+
+    /**
+     * The TypeScript interface name a DTO is emitted under.
+     */
+    public function interfaceName(string $dataClass): string
+    {
+        return 'I'.$this->shortName($dataClass);
     }
 
     /**
@@ -107,6 +153,8 @@ class DataClassResolver
      *
      * Short names are resolved through an index of every DTO discovered under
      * the configured namespaces, so DTOs living in sub-namespaces resolve too.
+     * Aliased DTOs are indexed under their alias, which is also the name
+     * `detectNested()` reads back out of a generated `I{Name}` reference.
      * Returns null when the reference is not a known DTO.
      */
     public function resolveDataClass(string $className): ?string
@@ -273,7 +321,7 @@ class DataClassResolver
         $index = [];
 
         foreach ($this->listDataClassesInNamespaces() as $fqcn) {
-            $index[class_basename($fqcn)] = $fqcn;
+            $index[$this->shortName($fqcn)] = $fqcn;
         }
 
         return $this->shortNameIndex = $index;
@@ -289,7 +337,7 @@ class DataClassResolver
         $byShortName = [];
 
         foreach ($fqcns as $fqcn) {
-            $byShortName[class_basename($fqcn)][] = $fqcn;
+            $byShortName[$this->shortName($fqcn)][] = $fqcn;
         }
 
         foreach ($byShortName as $shortName => $classes) {

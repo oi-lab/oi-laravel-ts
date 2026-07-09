@@ -23,7 +23,8 @@ class DataObjectNameCollisionException extends RuntimeException
 
         parent::__construct(
             "DataObject name collision: multiple classes resolve to interface I{$shortName} ({$list}). ".
-            'Rename one of the classes or narrow the configured dataobject_namespaces.'
+            'Rename one of the classes, narrow the configured namespaces, or give one of them a '.
+            'distinct interface name through the `data_aliases` config key.'
         );
     }
 }

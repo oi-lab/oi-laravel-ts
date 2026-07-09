@@ -13,6 +13,7 @@ use OiLab\OiLaravelTs\Services\Generators\JsonLdGenerator;
 use OiLab\OiLaravelTs\Services\Generators\ModelInterfaceGenerator;
 use OiLab\OiLaravelTs\Services\Processors\DataClassProcessor;
 use OiLab\OiLaravelTs\Services\Processors\DataObjectProcessor;
+use OiLab\OiLaravelTs\Services\Support\PropertyRenderer;
 
 /**
  * TypeScript Converter
@@ -137,6 +138,8 @@ class Convert
      * @param  array<int, string>  $dataNamespaces  Namespaces holding spatie-style DTOs to emit
      * @param  bool  $dataReplacesModel  Whether a mapped model's Eloquent interface is suppressed in favor of its DTO
      * @param  array<string, string>  $dataForModel  Explicit model => DTO mapping
+     * @param  string  $dataNullableStyle  How DTO nullability is rendered: `null` (default) or the legacy `optional`
+     * @param  array<string, string>  $dataAliases  Explicit DTO FQCN => interface base name map
      */
     public function __construct(
         array $schema,
@@ -145,6 +148,8 @@ class Convert
         array $dataNamespaces = [],
         bool $dataReplacesModel = false,
         array $dataForModel = [],
+        string $dataNullableStyle = PropertyRenderer::STYLE_NULL,
+        array $dataAliases = [],
     ) {
         $this->schema = $schema;
         $this->withJsonLd = $withJsonLd;
@@ -152,14 +157,17 @@ class Convert
         $this->dataReplacesModel = $dataReplacesModel;
 
         // Initialize all components
+        $renderer = new PropertyRenderer($dataNullableStyle);
+
         $this->typeConverter = new TypeScriptTypeConverter;
         $this->importManager = new ImportManager;
         $this->dataObjectResolver = new DataObjectResolver;
-        $this->dataObjectProcessor = new DataObjectProcessor($this->typeConverter, $this->dataObjectResolver);
-        $this->dataClassResolver = new DataClassResolver($dataNamespaces, $dataForModel);
+        $this->dataObjectProcessor = new DataObjectProcessor($this->typeConverter, $this->dataObjectResolver, $renderer);
+        $this->dataClassResolver = new DataClassResolver($dataNamespaces, $dataForModel, $dataAliases);
         $this->dataClassProcessor = new DataClassProcessor(
             new DataClassAnalyzer(new PhpToTypeScriptConverter($this->dataObjectResolver), $this->dataClassResolver),
             $this->dataClassResolver,
+            $renderer,
         );
         $this->modelGenerator = new ModelInterfaceGenerator($this->typeConverter);
         $this->jsonLdGenerator = new JsonLdGenerator;

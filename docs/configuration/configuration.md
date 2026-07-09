@@ -161,6 +161,69 @@ by short name through the `fromArray()`/`toArray()` contract.
 ],
 ```
 
+## data_nullable_style
+
+**Type:** `string` — **Default:** `'null'`
+
+Controls how nullability is rendered on DTO and DataObject interfaces (the ones
+produced from `data_namespaces` and `dataobject_namespaces`). Model interfaces
+are unaffected.
+
+A generated `I{X}Data` interface describes the JSON a DTO **produces**, not the
+arguments its constructor **accepts**. Serializers emit every declared property,
+so two independent facts must not be collapsed onto one notation:
+
+| Notation          | Meaning                                     |
+| ----------------- | ------------------------------------------- |
+| `name?: T`        | the key may be **absent** from the payload  |
+| `name: T \| null` | the key is present, the value may be `null` |
+
+With `'null'` (default), `| null` is emitted if and only if the property accepts
+null, and `?` if and only if the property is declared through a
+`Spatie\LaravelData\Optional` or `Lazy` marker. **A default value makes nothing
+optional on the output side.**
+
+| PHP declaration                       | TypeScript      |
+| ------------------------------------- | --------------- |
+| `public ?string $x = null`            | `x: string \| null;` |
+| `public ?string $x`                   | `x: string \| null;` |
+| `public string $x`                    | `x: string;`    |
+| `public int $x = 3`                   | `x: number;`    |
+| `public array $x = []` + `@var Foo[]` | `x: IFoo[];`    |
+| `public ?FooData $x = null`           | `x: IFooData \| null;` |
+| `public string\|Optional $x`          | `x?: string;`   |
+
+With the legacy `'optional'` style, any nullable *or* defaulted property is
+rendered `?` and `| null` is never emitted. Keep it while consumers still feed
+DTO interfaces into form inputs that expect every field to be optional.
+
+```php
+'data_nullable_style' => 'null', // 'null' | 'optional'
+```
+
+## data_aliases
+
+**Type:** `array` — **Default:** `[]`
+
+Two DTOs from different namespaces may share a short class name — say
+`App\Data\ContentData` and a package's `...\Data\Blocks\ContentData`. Both would
+claim `IContentData`, so generation aborts with a
+`DataObjectNameCollisionException`.
+
+Map a DTO to a distinct interface base name (without the `I` prefix) to resolve
+the conflict without renaming the PHP class. The alias is the name used
+everywhere: the emitted interface, and any nested reference to it from another
+DTO.
+
+```php
+'data_aliases' => [
+    OiLab\OiLaravelPublish\Data\Blocks\ContentData::class => 'PublishContentData',
+],
+```
+
+This emits `IPublishContentData` and leaves `IContentData` to
+`App\Data\ContentData`.
+
 ## data_replaces_model
 
 **Type:** `bool` — **Default:** `false`
@@ -192,6 +255,29 @@ factory to introspect, or to force a specific pairing.
     App\Models\Knowledge::class => App\Data\Knowledge\KnowledgeData::class,
 ],
 ```
+
+## included_model_namespaces
+
+**Type:** `array` — **Default:** `[]`
+
+Namespaces whose Eloquent models are added to the schema as if they lived in
+`app/Models` — with their relationships, their `_count` fields, and their own
+discovery of related models.
+
+`discover_related_models` only reaches a model that some other model already in
+the schema points at. A package model that nothing in the application references
+therefore never gets an interface. List its namespace here when a controller
+hands that model straight to the front end.
+
+```php
+'included_model_namespaces' => [
+    'OiLab\\OiLaravelPublish\\Models',
+    'OiLab\\OiLaravelAttachments\\Models',
+],
+```
+
+Abstract models and non-model classes found in the namespace are skipped, and
+`excluded_namespaces` still wins over this list.
 
 ## excluded_namespaces
 
