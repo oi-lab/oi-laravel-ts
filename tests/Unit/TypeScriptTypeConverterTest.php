@@ -7,6 +7,17 @@ describe('TypeScriptTypeConverter', function () {
         $this->converter = new TypeScriptTypeConverter;
     });
 
+    describe('convertRelationType', function () {
+        it('maps every relation type', function (string $relation, string $expected) {
+            expect($this->converter->convertRelationType($relation, 'App\\Models\\Post'))->toBe($expected);
+        })->with([
+            ['BelongsTo', 'IPost'],
+            ['HasOneThrough', 'IPost'],
+            ['HasManyThrough', 'IPost[]'],
+            ['MorphTo', 'unknown'],
+        ]);
+    });
+
     describe('convertColumnType', function () {
         it('maps Laravel column types to TypeScript types', function (string $columnType, string $expected) {
             expect($this->converter->convertColumnType($columnType))->toBe($expected);

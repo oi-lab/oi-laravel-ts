@@ -82,6 +82,44 @@ When enabled, any model targeted by a relationship is added to the schema even i
 'discover_related_models' => true,
 ```
 
+## use_database_schema
+
+**Type:** `bool` — **Default:** `true`
+
+Reads each model's table to build its interface: every column the model
+serializes — fillable or not, hidden ones excluded — typed from its cast or,
+when uncast, from its column type. A nullable column renders as
+`col?: T | null`. Enum casts become literal unions.
+
+Generation never requires a database: when this is off, or when the table
+cannot be read, only `$fillable` is used and an uncast column is typed
+`string`.
+
+```php
+'use_database_schema' => true,
+```
+
+## declaration_style
+
+**Type:** `string` — **Default:** `'interface'`
+
+How each generated shape is declared:
+
+| Value         | Output                          |
+| ------------- | ------------------------------- |
+| `'interface'` | `export interface IUser { ... }` |
+| `'type'`      | `export type IUser = { ... };`   |
+
+A type alias has an implicit index signature; an interface never does. Only
+the `'type'` style is assignable to `Record<string, T>`, which Inertia's
+`useForm` / `useHttp` require of their data — with interfaces, every consumer
+has to restate the shape through a mapped type first. Extension models become
+intersections (`IUser & { ... }`).
+
+```php
+'declaration_style' => 'type',
+```
+
 ## save_schema
 
 **Type:** `bool` — **Default:** `false`
@@ -223,6 +261,43 @@ DTO.
 
 This emits `IPublishContentData` and leaves `IContentData` to
 `App\Data\ContentData`.
+
+## data_discriminators
+
+**Type:** `array` — **Default:** `[]`
+
+Emits a DTO as a discriminated union, for a DTO whose one property (the
+discriminant) decides the type of another. A `@param HeroData|GridData|array<string, mixed>`
+union alone gives TypeScript nothing to narrow on, and its `Record<string, unknown>`
+member absorbs the others.
+
+```php
+'data_discriminators' => [
+    App\Data\BlockData::class => [
+        'discriminant' => 'template_key',
+        'property' => 'props',
+        'map' => [
+            'hero' => App\Data\Blocks\HeroData::class,
+            'grid' => App\Data\Blocks\GridData::class,
+        ],
+    ],
+],
+```
+
+`map` may also be a callable returning that array — `[Registry::class, 'method']`
+or an invokable class name — called through the container at generation time,
+so a package can derive it from its own registry.
+
+```typescript
+export interface IBlockDataBase { id: number; name: string | null; }
+
+export type IBlockDataPropsMap = { 'hero': IHeroData; 'grid': IGridData; };
+
+export type IBlockData = IBlockDataBase & (
+    | { template_key: 'hero'; props: IHeroData }
+    | { template_key: 'grid'; props: IGridData }
+);
+```
 
 ## data_replaces_model
 

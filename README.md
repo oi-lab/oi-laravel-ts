@@ -107,6 +107,14 @@ return [
     // Add every Eloquent model of these namespaces to the schema, as if in app/Models
     'included_model_namespaces' => [],
 
+    // Read model columns, their types and nullability from the database
+    // (falls back to $fillable when disabled or unreachable)
+    'use_database_schema' => true,
+
+    // 'interface': export interface IFoo { ... }
+    // 'type'     : export type IFoo = { ... }; — assignable to Record<string, T>
+    'declaration_style' => 'interface',
+
     // Exclude models in these namespaces entirely (incl. relation fields pointing to them)
     'excluded_namespaces' => [],
 
@@ -121,6 +129,9 @@ return [
 
     // Give a DTO a distinct interface name when two share a short class name
     'data_aliases' => [],
+
+    // Emit a DTO as a discriminated union (see "Discriminated Unions")
+    'data_discriminators' => [],
 
     // 'null': `?` means "key may be absent", `| null` means "value may be null"
     // 'optional': legacy — nullable or defaulted properties all render as `?`
@@ -323,6 +334,57 @@ the DTO's `fromModel()` factory, or set explicitly via `data_for_model`:
 > Note: with `data_replaces_model` enabled, a relationship on another model that
 > points to a replaced model will reference an interface that is no longer
 > generated.
+
+### Discriminated Unions
+
+A DTO whose one property decides the type of another — a block whose
+`template_key` decides its `props` — can be emitted as a discriminated union, so
+TypeScript narrows the second when you test the first:
+
+```php
+'data_discriminators' => [
+    App\Data\BlockData::class => [
+        'discriminant' => 'template_key',
+        'property' => 'props',
+        // A literal map, or a callable returning one at generation time,
+        // e.g. [BlockRegistry::class, 'propsClasses'].
+        'map' => [
+            'hero' => App\Data\Blocks\HeroData::class,
+            'grid' => App\Data\Blocks\GridData::class,
+        ],
+    ],
+],
+```
+
+```typescript
+export interface IBlockDataBase { id: number; name: string | null; }
+
+export type IBlockDataPropsMap = { 'hero': IHeroData; 'grid': IGridData; };
+
+export type IBlockData = IBlockDataBase & (
+    | { template_key: 'hero'; props: IHeroData }
+    | { template_key: 'grid'; props: IGridData }
+);
+```
+
+`I{X}{Property}Map` types a registry keyed on the discriminant:
+`const renderers: { [K in keyof IBlockDataPropsMap]: Renderer<IBlockDataPropsMap[K]> }`.
+
+### Model Attributes From the Database
+
+With `use_database_schema` (default), a model's interface lists every column of
+its table except hidden ones, typed from the cast or the column, and nullable
+columns render as `col?: T | null`. Enum casts become literal unions, and
+`Attribute` accessors in `$appends` are typed from their
+`@return Attribute<TGet, TSet>` annotation. Generation still works without a
+database: the model's `$fillable` is used instead.
+
+### Type Aliases Instead of Interfaces
+
+An `interface` has no implicit index signature, so `IFoo` is not assignable to
+`Record<string, unknown>` — which Inertia's `useForm` / `useHttp` require of
+their data. Set `'declaration_style' => 'type'` to emit `export type IFoo = {...};`
+and pass generated shapes to form helpers as they are.
 
 ### Namespace Filters
 

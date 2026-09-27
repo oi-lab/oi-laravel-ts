@@ -5,6 +5,7 @@ namespace OiLab\OiLaravelTs\Services\Processors;
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
 use OiLab\OiLaravelTs\Services\DataObjectResolver;
 use OiLab\OiLaravelTs\Services\Generators\InterfaceUnit;
+use OiLab\OiLaravelTs\Services\Support\Declaration;
 use OiLab\OiLaravelTs\Services\Support\PropertyRenderer;
 use ReflectionClass;
 use ReflectionException;
@@ -93,7 +94,8 @@ class DataObjectProcessor
         }
 
         $interfaceName = "I{$dataObjectName}";
-        $body = "export interface {$interfaceName} {\n";
+        $declaration = Declaration::fromConfig();
+        $body = $declaration->open($interfaceName);
 
         foreach ($field['properties'] as $property) {
             // Detect nested DataObjects
@@ -102,7 +104,7 @@ class DataObjectProcessor
             $body .= '    '.$this->renderer->render($property)."\n";
         }
 
-        $body .= '}';
+        $body .= $declaration->close();
 
         $this->units[] = InterfaceUnit::make($interfaceName, $body);
     }
@@ -207,7 +209,8 @@ class DataObjectProcessor
             $phpDocTypes = $this->parsePhpDocTypes($docComment);
 
             $interfaceName = "I{$dataObjectName}";
-            $body = "export interface {$interfaceName} {\n";
+            $declaration = Declaration::fromConfig();
+            $body = $declaration->open($interfaceName);
 
             foreach ($parameters as $parameter) {
                 $paramName = $parameter->getName();
@@ -232,7 +235,7 @@ class DataObjectProcessor
                 ])."\n";
             }
 
-            $body .= '}';
+            $body .= $declaration->close();
 
             $this->units[] = InterfaceUnit::make($interfaceName, $body);
         } catch (ReflectionException $e) {

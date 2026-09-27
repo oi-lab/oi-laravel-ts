@@ -86,6 +86,71 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Use Database Schema
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, a model's attributes are read from its table: every column
+    | the model serializes (fillable or not, hidden ones excluded), typed from
+    | its cast or its column type, and marked nullable when the column is.
+    | Without it — or when the database is unreachable at generation time —
+    | only `$fillable` is used, and an uncast column is typed `string`.
+    |
+    */
+    'use_database_schema' => true,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Declaration Style
+    |--------------------------------------------------------------------------
+    |
+    | How each generated shape is declared:
+    |
+    | - 'interface' (default): `export interface IUser { ... }`
+    | - 'type'               : `export type IUser = { ... };`
+    |
+    | A type alias carries an implicit index signature, an interface never
+    | does: only the 'type' style is assignable to `Record<string, T>`, which
+    | form helpers such as Inertia's `useForm` / `useHttp` require of their
+    | data. Extension models become intersections (`IUser & { ... }`).
+    |
+    */
+    'declaration_style' => 'interface',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Data Discriminators
+    |--------------------------------------------------------------------------
+    |
+    | Emit a DTO as a discriminated union: one property (the discriminant)
+    | decides the type of another. Without it, a `@param A|B|array<string,
+    | mixed>` union carries no discriminant and TypeScript cannot narrow it.
+    |
+    |   'data_discriminators' => [
+    |       App\Data\BlockData::class => [
+    |           'discriminant' => 'template_key',
+    |           'property' => 'props',
+    |           // A literal map, or a callable returning one, called at
+    |           // generation time: [Registry::class, 'propsClasses'].
+    |           'map' => [
+    |               'hero' => App\Data\Blocks\HeroData::class,
+    |               'grid' => App\Data\Blocks\GridData::class,
+    |           ],
+    |       ],
+    |   ],
+    |
+    | produces `IBlockDataBase` (the shared properties), `IBlockDataPropsMap`
+    | (`{ 'hero': IHeroData; 'grid': IGridData }`) and
+    |
+    |   export type IBlockData = IBlockDataBase & (
+    |       | { template_key: 'hero'; props: IHeroData }
+    |       | { template_key: 'grid'; props: IGridData }
+    |   );
+    |
+    */
+    'data_discriminators' => [],
+
+    /*
+    |--------------------------------------------------------------------------
     | Save Schema
     |--------------------------------------------------------------------------
     |

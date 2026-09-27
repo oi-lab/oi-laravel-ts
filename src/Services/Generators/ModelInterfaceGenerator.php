@@ -2,7 +2,10 @@
 
 namespace OiLab\OiLaravelTs\Services\Generators;
 
+use Illuminate\Database\Eloquent\Relations\MorphPivot;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use OiLab\OiLaravelTs\Services\Converters\TypeScriptTypeConverter;
+use OiLab\OiLaravelTs\Services\Support\Declaration;
 
 /**
  * Model Interface Generator
@@ -82,9 +85,10 @@ class ModelInterfaceGenerator
             $properties[] = $this->convertField($field);
         }
 
-        $body = "export interface {$interfaceName} {\n";
+        $declaration = Declaration::fromConfig();
+        $body = $declaration->open($interfaceName);
         $body .= '    '.implode("\n    ", $properties)."\n";
-        $body .= '}';
+        $body .= $declaration->close();
 
         $this->units[] = InterfaceUnit::make($interfaceName, $body);
     }
@@ -121,9 +125,10 @@ class ModelInterfaceGenerator
             $properties[] = $this->convertField($field);
         }
 
-        $body = "export interface {$interfaceName} extends {$baseInterface} {\n";
+        $declaration = Declaration::fromConfig();
+        $body = $declaration->open($interfaceName, $baseInterface);
         $body .= '    '.implode("\n    ", $properties)."\n";
-        $body .= '}';
+        $body .= $declaration->close();
 
         $this->units[] = InterfaceUnit::make($interfaceName, $body);
     }
@@ -161,7 +166,8 @@ class ModelInterfaceGenerator
         $type = $this->getTypeScriptType($field);
         $optional = ! $this->isRequired($field);
         $nullable = isset($field['nullable']) && $field['nullable'] === true;
-        $suffix = $nullable ? ' | null' : '';
+        // `unknown` already subsumes null.
+        $suffix = ($nullable && $type !== 'unknown') ? ' | null' : '';
 
         return "{$name}".($optional ? '?' : '').": {$type}{$suffix};";
     }
@@ -218,12 +224,19 @@ class ModelInterfaceGenerator
      *     type: string,
      *     relation: bool,
      *     model?: string,
-     *     isImport?: bool
+     *     isImport?: bool,
+     *     tsType?: string
      * } $field The field definition
      * @return string The TypeScript type
      */
     private function getTypeScriptType(array $field): string
     {
+        // Already resolved to TypeScript by the extractor (enum casts, column
+        // types, accessor return types).
+        if (isset($field['tsType']) && $field['tsType'] !== '') {
+            return $field['tsType'];
+        }
+
         // Handle imported types
         if (isset($field['isImport']) && $field['isImport']) {
             return $this->extractImportedType($field['type']);
@@ -263,8 +276,8 @@ class ModelInterfaceGenerator
     private function hasCustomPivotClass(string $pivotClass): bool
     {
         return ! in_array($pivotClass, [
-            \Illuminate\Database\Eloquent\Relations\Pivot::class,
-            \Illuminate\Database\Eloquent\Relations\MorphPivot::class,
+            Pivot::class,
+            MorphPivot::class,
         ], true);
     }
 

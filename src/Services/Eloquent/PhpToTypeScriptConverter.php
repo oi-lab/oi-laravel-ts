@@ -3,6 +3,7 @@
 namespace OiLab\OiLaravelTs\Services\Eloquent;
 
 use OiLab\OiLaravelTs\Services\DataObjectResolver;
+use OiLab\OiLaravelTs\Support\GenericTypeNormalizer;
 
 /**
  * PHP to TypeScript Type Converter
@@ -138,6 +139,9 @@ class PhpToTypeScriptConverter
      */
     private function convertSinglePhpDocType(string $phpDocType): string
     {
+        // list<T>, Collection<int, T>… become array<int, T> (or array<string, T>).
+        $phpDocType = GenericTypeNormalizer::normalize($phpDocType);
+
         // Handle array<string, mixed> -> Record<string, unknown>
         if (preg_match('/^array<string,\s*mixed>$/', $phpDocType)) {
             return 'Record<string, unknown>';

@@ -78,7 +78,7 @@ export interface IAttachment {
     attachable_type: string;
     created_at: string;
     updated_at: string;
-    attachable?: never;
+    attachable?: unknown;
 }
 
 export interface IEvent {

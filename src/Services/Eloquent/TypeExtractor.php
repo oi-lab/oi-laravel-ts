@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
+use OiLab\OiLaravelTs\Support\ColumnTypeMapper;
+use OiLab\OiLaravelTs\Support\EnumTypeResolver;
 use ReflectionException;
+use ReflectionFunction;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionUnionType;
@@ -67,6 +70,12 @@ class TypeExtractor
     private bool $withCounts;
 
     /**
+     * Reader of the model's table columns, or null to rely on the model's
+     * declarations alone (`use_database_schema` disabled).
+     */
+    private ?ModelColumnReader $columnReader;
+
+    /**
      * Create a new type extractor instance.
      *
      * @param  CastTypeResolver  $castTypeResolver  Resolver for custom cast types
@@ -74,19 +83,22 @@ class TypeExtractor
      * @param  PhpToTypeScriptConverter  $phpToTsConverter  PHP to TypeScript type converter
      * @param  array<string, array<string, string>|string>  $customProps  Custom property overrides
      * @param  bool  $withCounts  Whether to include relationship count fields
+     * @param  ModelColumnReader|null  $columnReader  Source of column types and nullability
      */
     public function __construct(
         CastTypeResolver $castTypeResolver,
         RelationshipResolver $relationshipResolver,
         PhpToTypeScriptConverter $phpToTsConverter,
         array $customProps = [],
-        bool $withCounts = true
+        bool $withCounts = true,
+        ?ModelColumnReader $columnReader = null,
     ) {
         $this->castTypeResolver = $castTypeResolver;
         $this->relationshipResolver = $relationshipResolver;
         $this->phpToTsConverter = $phpToTsConverter;
         $this->customProps = $customProps;
         $this->withCounts = $withCounts;
+        $this->columnReader = $columnReader;
     }
 
     /**
@@ -151,8 +163,9 @@ class TypeExtractor
             ]);
         }
 
-        // 2. Process fillable attributes
-        $this->processFillableAttributes($model, $types, $customModelProps);
+        // 2. Process attributes: the table's columns when the schema is
+        // readable, the fillable list otherwise.
+        $this->processAttributes($model, $types, $customModelProps);
 
         // 3. Add timestamps
         if ($model->timestamps) {
@@ -205,12 +218,23 @@ class TypeExtractor
     }
 
     /**
-     * Process fillable attributes and add them to the types collection.
+     * Process the model's attributes and add them to the types collection.
      *
-     * For each fillable attribute:
-     * - Checks for custom property override
-     * - Checks for custom cast type
-     * - Falls back to cast type from model
+     * The attributes are the table's columns when the schema can be read — that
+     * is what the model serializes, fillable or not — and `$fillable` otherwise.
+     * Hidden attributes never reach the JSON, so they are left out. Timestamp
+     * and soft-delete columns are left to `addTimestamps()` and
+     * `addSoftDeleteTimestamp()`.
+     *
+     * For each attribute, the type comes from, in order:
+     * - a custom property override;
+     * - an enum cast, as a literal union;
+     * - a custom cast class;
+     * - a built-in cast;
+     * - the column's database type;
+     * - `string`.
+     *
+     * Nullability comes from the column when the schema is readable.
      *
      * @param  Model  $model  The model instance
      * @param  Collection  $types  The types collection to add to
@@ -218,17 +242,33 @@ class TypeExtractor
      *
      * @throws ReflectionException If reflection fails
      */
-    private function processFillableAttributes(Model $model, Collection $types, array $customModelProps): void
+    private function processAttributes(Model $model, Collection $types, array $customModelProps): void
     {
-        $columns = $model->getFillable();
+        $schemaColumns = $this->columnReader?->columns($model) ?? [];
         $casts = $model->getCasts();
         $keyName = $model->getKeyName();
+        $hidden = $model->getHidden();
+        $managed = array_filter([
+            $model->usesTimestamps() ? $model->getCreatedAtColumn() : null,
+            $model->usesTimestamps() ? $model->getUpdatedAtColumn() : null,
+            method_exists($model, 'getDeletedAtColumn') ? $model->getDeletedAtColumn() : null,
+        ]);
+
+        $columns = $schemaColumns !== [] ? array_keys($schemaColumns) : $model->getFillable();
 
         foreach ($columns as $column) {
             // Skip the primary key — it was already added in extractTypes.
-            if ($column === $keyName) {
+            if ($column === $keyName || in_array($column, $managed, true)) {
                 continue;
             }
+
+            if (in_array($column, $hidden, true) && ! isset($customModelProps[$column])) {
+                continue;
+            }
+
+            $schemaColumn = $schemaColumns[$column] ?? null;
+            $nullable = $schemaColumn !== null ? ['nullable' => $schemaColumn['nullable']] : [];
+
             // Check for custom property override first
             if (isset($customModelProps[$column])) {
                 $customType = $customModelProps[$column];
@@ -242,23 +282,71 @@ class TypeExtractor
                 continue;
             }
 
-            $castType = $casts[$column] ?? 'string';
+            $castType = $casts[$column] ?? null;
+            $builtinCast = is_string($castType) ? ColumnTypeMapper::fromCast($castType) : null;
+            // Only a cast that is not one of Laravel's built-in names can be a
+            // class: `class_exists('datetime')` is true, PHP's DateTime.
+            $castClass = is_string($castType) && $builtinCast === null ? explode(':', $castType, 2)[0] : null;
+
+            // Enum casts serialize to their backing value (or case name).
+            if ($castClass !== null && ($enum = EnumTypeResolver::toTypeScript($castClass)) !== null) {
+                $types->push([
+                    'field' => $column,
+                    'type' => $castClass,
+                    'relation' => false,
+                    'tsType' => $enum,
+                    ...$nullable,
+                ]);
+
+                continue;
+            }
 
             // Check if it's a custom cast class
-            if (is_string($castType) && class_exists($castType)) {
-                $castTypeInfo = $this->castTypeResolver->resolve($castType, $column);
+            if ($castClass !== null && class_exists($castClass)) {
+                $castTypeInfo = $this->castTypeResolver->resolve($castClass, $column);
                 if ($castTypeInfo !== null) {
-                    $types->push($castTypeInfo);
+                    $types->push([...$castTypeInfo, ...$nullable]);
 
                     continue;
                 }
+
+                // A class cast whose value could not be typed: whatever it
+                // serializes to, it is not the raw column, so do not fall
+                // back to the column type.
+                $types->push([
+                    'field' => $column,
+                    'type' => $castClass,
+                    'relation' => false,
+                    'tsType' => 'unknown',
+                    ...$nullable,
+                ]);
+
+                continue;
             }
 
-            // Standard cast type
+            $tsType = $builtinCast
+                ?? ($schemaColumn !== null
+                    ? ColumnTypeMapper::fromColumn($schemaColumn['type_name'], $schemaColumn['type'])
+                    : null);
+
+            if ($tsType !== null) {
+                $types->push([
+                    'field' => $column,
+                    'type' => $castType ?? $schemaColumn['type_name'] ?? 'string',
+                    'relation' => false,
+                    'tsType' => $tsType,
+                    ...$nullable,
+                ]);
+
+                continue;
+            }
+
+            // Unknown cast and no schema: keep the legacy behaviour.
             $types->push([
                 'field' => $column,
-                'type' => $castType,
+                'type' => $castType ?? 'string',
                 'relation' => false,
+                ...$nullable,
             ]);
         }
     }
@@ -354,6 +442,7 @@ class TypeExtractor
                 'relation' => false,
                 'nullable' => $nullable,
                 'isImport' => false,
+                'tsType' => $tsType,
             ]);
         }
     }
@@ -405,11 +494,83 @@ class TypeExtractor
             if ($returnType instanceof ReflectionNamedType
                 && is_a($returnType->getName(), Attribute::class, true)
             ) {
-                return ['unknown', false];
+                return $this->resolveAttributeAccessorType($model, $reflection);
             }
         }
 
         return ['unknown', false];
+    }
+
+    /**
+     * Resolve the getter type of a new-style `Attribute` accessor.
+     *
+     * Reads, in order, the `@return Attribute<TGet, TSet>` annotation — its
+     * first argument is what the attribute serializes to — then the return type
+     * of the getter closure itself. Falls back to `unknown`.
+     *
+     * @return array{0: string, 1: bool} [tsType, nullable]
+     */
+    private function resolveAttributeAccessorType(Model $model, ReflectionMethod $method): array
+    {
+        $doc = $method->getDocComment() ?: '';
+
+        if (preg_match('/@return\s+\\\\?(?:[\w\\\\]*\\\\)?Attribute<(.+)>/', $doc, $match)) {
+            $getter = $this->firstGenericArgument($match[1]);
+
+            if ($getter !== '' && strtolower($getter) !== 'never') {
+                $members = $this->phpToTsConverter->splitUnionType($getter);
+                $nullable = in_array('null', array_map('strtolower', $members), true);
+
+                return [$this->phpToTsConverter->convertPhpDocToTs($getter), $nullable];
+            }
+        }
+
+        try {
+            $method->setAccessible(true);
+            $attribute = $method->invoke($model);
+        } catch (\Throwable) {
+            return ['unknown', false];
+        }
+
+        if (! $attribute instanceof Attribute || ! $attribute->get instanceof \Closure) {
+            return ['unknown', false];
+        }
+
+        $returnType = (new ReflectionFunction($attribute->get))->getReturnType();
+
+        if ($returnType instanceof ReflectionNamedType) {
+            return [$this->phpToTsConverter->phpTypeToTypeScript($returnType->getName()), $returnType->allowsNull()];
+        }
+
+        if ($returnType instanceof ReflectionUnionType) {
+            $nonNull = array_filter($returnType->getTypes(), fn ($t) => $t->getName() !== 'null');
+            $tsTypes = array_map(fn ($t) => $this->phpToTsConverter->phpTypeToTypeScript($t->getName()), $nonNull);
+
+            return [implode(' | ', array_unique($tsTypes)), $returnType->allowsNull()];
+        }
+
+        return ['unknown', false];
+    }
+
+    /**
+     * The first top-level argument of a generic argument list:
+     * `string|null, never` yields `string|null`.
+     */
+    private function firstGenericArgument(string $arguments): string
+    {
+        $depth = 0;
+
+        foreach (str_split($arguments) as $index => $char) {
+            if ($char === '<') {
+                $depth++;
+            } elseif ($char === '>') {
+                $depth--;
+            } elseif ($char === ',' && $depth === 0) {
+                return trim(substr($arguments, 0, $index));
+            }
+        }
+
+        return trim($arguments);
     }
 
     /**

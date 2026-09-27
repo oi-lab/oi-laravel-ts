@@ -3,6 +3,7 @@
 namespace OiLab\OiLaravelTs\Services\Converters;
 
 use OiLab\OiLaravelTs\Services\DataObjectResolver;
+use OiLab\OiLaravelTs\Support\ColumnTypeMapper;
 
 /**
  * TypeScript Type Converter
@@ -324,7 +325,8 @@ class TypeScriptTypeConverter
             'boolean' => 'boolean',
             'date', 'datetime', 'timestamp' => 'string',
             'array', 'json' => 'Record<string, never>',
-            default => 'never',
+            'unknown' => 'unknown',
+            default => ColumnTypeMapper::fromCast($columnType) ?? 'never',
         };
     }
 
@@ -344,8 +346,10 @@ class TypeScriptTypeConverter
         $modelName = class_basename($relatedModel);
 
         return match ($relationType) {
-            'HasOne', 'BelongsTo', 'MorphOne' => "I{$modelName}",
-            'HasMany', 'BelongsToMany', 'MorphToMany', 'MorphMany' => "I{$modelName}[]",
+            'HasOne', 'BelongsTo', 'MorphOne', 'HasOneThrough' => "I{$modelName}",
+            'HasMany', 'BelongsToMany', 'MorphToMany', 'MorphMany', 'HasManyThrough' => "I{$modelName}[]",
+            // The related model of a MorphTo is only known per row.
+            'MorphTo' => 'unknown',
             default => 'never',
         };
     }

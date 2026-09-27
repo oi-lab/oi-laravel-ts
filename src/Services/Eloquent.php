@@ -5,6 +5,7 @@ namespace OiLab\OiLaravelTs\Services;
 use Illuminate\Support\Collection;
 use OiLab\OiLaravelTs\Services\Eloquent\CastTypeResolver;
 use OiLab\OiLaravelTs\Services\Eloquent\DataObjectAnalyzer;
+use OiLab\OiLaravelTs\Services\Eloquent\ModelColumnReader;
 use OiLab\OiLaravelTs\Services\Eloquent\ModelDiscovery;
 use OiLab\OiLaravelTs\Services\Eloquent\PhpToTypeScriptConverter;
 use OiLab\OiLaravelTs\Services\Eloquent\RelationshipResolver;
@@ -64,6 +65,11 @@ class Eloquent
      * Whether to recursively discover models referenced by relationships.
      */
     private static bool $discoverRelatedModels = true;
+
+    /**
+     * Whether to read column types and nullability from the database schema.
+     */
+    private static bool $useDatabaseSchema = true;
 
     /**
      * Namespace prefixes whose models join the schema wholesale.
@@ -200,6 +206,21 @@ class Eloquent
     public static function setDiscoverRelatedModels(bool $discoverRelatedModels): void
     {
         self::$discoverRelatedModels = $discoverRelatedModels;
+    }
+
+    /**
+     * Set whether to read attribute types and nullability from the database.
+     *
+     * When enabled (default), a model's attributes are its table's columns, and
+     * each one is typed and marked nullable from its column. When disabled, or
+     * when the table cannot be read, the model's `$fillable` and casts are used
+     * alone, as before.
+     *
+     * @param  bool  $useDatabaseSchema  Whether to introspect the schema
+     */
+    public static function setUseDatabaseSchema(bool $useDatabaseSchema): void
+    {
+        self::$useDatabaseSchema = $useDatabaseSchema;
     }
 
     /**
@@ -441,7 +462,8 @@ class Eloquent
             $relationshipResolver,
             $typeConverter,
             self::$customProps,
-            self::$withCounts
+            self::$withCounts,
+            self::$useDatabaseSchema ? new ModelColumnReader : null,
         );
 
         return $typeExtractor;

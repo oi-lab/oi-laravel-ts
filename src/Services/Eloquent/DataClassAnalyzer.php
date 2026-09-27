@@ -4,6 +4,7 @@ namespace OiLab\OiLaravelTs\Services\Eloquent;
 
 use OiLab\OiLaravelTs\Services\DataClassResolver;
 use OiLab\OiLaravelTs\Support\EnumTypeResolver;
+use OiLab\OiLaravelTs\Support\GenericTypeNormalizer;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionUnionType;
@@ -223,10 +224,14 @@ class DataClassAnalyzer
             return '';
         }
 
-        if (str_contains($type, '|')) {
+        // Split on top-level pipes only: `array<int, string|int>` is one member,
+        // and recursing on it as a union would never terminate.
+        $members = $this->typeConverter->splitUnionType($type);
+
+        if (count($members) > 1) {
             $parts = [];
 
-            foreach ($this->typeConverter->splitUnionType($type) as $part) {
+            foreach ($members as $part) {
                 $part = trim($part);
                 if ($part === 'null' || $part === '' || $this->isOptionalMarker($part)) {
                     continue;
@@ -236,6 +241,8 @@ class DataClassAnalyzer
 
             return implode(' | ', array_values(array_unique($parts)));
         }
+
+        $type = GenericTypeNormalizer::normalize($type);
 
         if (str_ends_with($type, '[]')) {
             return $this->arrayOf($this->resolveType(substr($type, 0, -2), $context));

@@ -4,6 +4,26 @@ All notable changes to `oi-laravel-ts` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-27
+
+### Added
+- **`use_database_schema`** (default `true`): model attributes are read from the table. Every column the model serializes is emitted — fillable or not — typed from its cast or, when uncast, from its column type, and marked nullable (`col?: T | null`) when the column is. Falls back to `$fillable` when disabled or when the database is unreachable at generation time.
+- **`declaration_style`** (default `'interface'`): `'type'` emits `export type IFoo = { ... };` instead of `export interface IFoo { ... }`. A type alias is assignable to `Record<string, T>` — what Inertia's `useForm` / `useHttp` require — where an interface never is. Extension models become intersections.
+- **`data_discriminators`**: emit a DTO as a discriminated union. Given a discriminant property and a map `value => DTO class` (literal, or a callable resolved at generation time), the DTO comes out as `I{X}Base`, `I{X}{Property}Map` and `I{X} = I{X}Base & ( | { key: 'a'; prop: IA } | ... )`, so narrowing on the discriminant narrows the property. The `Record<string, unknown>` member that absorbed a `@param A|B|array<string, mixed>` union is gone.
+
+### Fixed
+- `list<T>`, `non-empty-list<T>`, `non-empty-array<K, V>`, `iterable<T>` and `Collection<K, T>` resolve like `array<K, T>` instead of falling back to `unknown` without warning.
+- A union nested in a generic (`array<int, string|int>`) no longer recurses forever.
+- Enum casts on models emit their literal union instead of `never`.
+- Built-in casts are typed by what they serialize to: `int`/`bool`/`timestamp`/`immutable_datetime`/`decimal:*`/`hashed`/`encrypted` no longer come out as `never`; `array`/`json`/`collection` come out as `unknown`.
+- Hidden attributes (`$hidden`, `#[Hidden]`) are left out of model interfaces — they never reach the JSON.
+- A class cast whose value type cannot be read is typed `unknown` instead of falling back to its column (a json column read as `string`), and `| null` is no longer appended to `unknown`.
+- `MorphTo` relations are typed `unknown` and `HasOneThrough` / `HasManyThrough` resolve to their related model, instead of `never`.
+- New-style `Attribute` accessors listed in `$appends` are typed from their `@return Attribute<TGet, TSet>` annotation, or else from the getter closure's return type, instead of `unknown` (rendered `never`).
+
+### Changed
+- **Generated output** — with `use_database_schema` on, model interfaces gain their non-fillable columns and nullable columns become `col?: T | null`. Timestamps stay required. Set `use_database_schema => false` for the previous output.
+
 ## [1.1.0] - 2026-07-09
 
 ### Changed
