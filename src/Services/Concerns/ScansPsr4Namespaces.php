@@ -47,6 +47,11 @@ trait ScansPsr4Namespaces
             }
         }
 
+        // Directory iteration order depends on the filesystem (APFS sorts,
+        // ext4 does not): without a sort, the generated file differs between
+        // a Mac and a Linux CI runner.
+        sort($classes);
+
         return $classes;
     }
 

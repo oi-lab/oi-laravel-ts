@@ -4,6 +4,11 @@ All notable changes to `oi-laravel-ts` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-09
+
+### Fixed
+- Classes discovered under a namespace are sorted, so the generated file no longer depends on the filesystem's directory order (the same app produced a different `interfaces.ts` on macOS and on a Linux CI runner).
+
 ## [1.2.0] - 2026-09-27
 
 ### Added
