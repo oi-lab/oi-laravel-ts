@@ -5,6 +5,7 @@ namespace OiLab\OiLaravelTs\Services\Eloquent;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use ReflectionException;
+use ReflectionClass;
 use ReflectionMethod;
 
 /**
@@ -82,7 +83,7 @@ class RelationshipResolver
     public function resolveRelationships(Model $model): array
     {
         $relations = [];
-        $methods = get_class_methods($model);
+        $methods = $this->methodsInDeclarationOrder($model);
 
         foreach ($methods as $method) {
             // Skip methods inherited from base Model class
@@ -106,6 +107,50 @@ class RelationshipResolver
         }
 
         return $relations;
+    }
+
+    /**
+     * The model's public methods, in an order that does not depend on the PHP
+     * version: the model's own methods as declared, then each trait's methods
+     * in `use` order, then inherited ones.
+     *
+     * `get_class_methods()` alone is not stable: PHP 8.5 lists trait methods
+     * before inherited ones where PHP 8.4 lists them after, which reordered
+     * the relationships of the generated interfaces.
+     *
+     * @return array<int, string>
+     */
+    private function methodsInDeclarationOrder(Model $model): array
+    {
+        $class = new ReflectionClass($model);
+        $traitFiles = array_values(array_map(
+            static fn (string $trait): string|false => (new ReflectionClass($trait))->getFileName(),
+            class_uses_recursive($model),
+        ));
+
+        $keyed = [];
+
+        foreach (get_class_methods($model) as $index => $method) {
+            $reflection = new ReflectionMethod($model, $method);
+            $file = $reflection->getFileName();
+            $traitPosition = array_search($file, $traitFiles, true);
+
+            $group = match (true) {
+                $reflection->getDeclaringClass()->getName() === $class->getName() && $file === $class->getFileName() => 0,
+                $traitPosition !== false => 1 + $traitPosition,
+                default => PHP_INT_MAX,
+            };
+
+            // Inherited methods live in several files: their line numbers do
+            // not compare, so they keep the order PHP gives them.
+            $line = $group === PHP_INT_MAX ? 0 : (int) $reflection->getStartLine();
+
+            $keyed[] = [$group, $line, $index, $method];
+        }
+
+        usort($keyed, static fn (array $a, array $b): int => [$a[0], $a[1], $a[2]] <=> [$b[0], $b[1], $b[2]]);
+
+        return array_column($keyed, 3);
     }
 
     /**

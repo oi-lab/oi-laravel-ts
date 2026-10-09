@@ -4,6 +4,11 @@ All notable changes to `oi-laravel-ts` will be documented in this file.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-09
+
+### Fixed
+- A model's relationships come out in the same order on every PHP version: its own methods as declared, then each trait's in `use` order, then inherited ones. `get_class_methods()` lists trait methods before inherited ones on PHP 8.5 and after on PHP 8.4, so the same application generated two different files.
+
 ## [1.2.1] - 2026-10-09
 
 ### Fixed

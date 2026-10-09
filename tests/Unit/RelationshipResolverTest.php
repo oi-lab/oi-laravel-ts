@@ -1,6 +1,7 @@
 <?php
 
 use OiLab\OiLaravelTs\Services\Eloquent\RelationshipResolver;
+use OiLab\OiLaravelTs\Tests\Fixtures\Models\Article;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\User;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Post;
 use OiLab\OiLaravelTs\Tests\Fixtures\Models\Comment;
@@ -11,6 +12,14 @@ describe('RelationshipResolver', function () {
     });
 
     describe('resolveRelationships', function () {
+        it('lists own, then trait, then inherited relationships whatever the PHP version', function () {
+            // PHP 8.5 lists trait methods before inherited ones, PHP 8.4 after:
+            // the order must not follow get_class_methods().
+            $names = array_column($this->resolver->resolveRelationships(new Article), 'name');
+
+            expect($names)->toBe(['reviewer', 'editor', 'comments', 'author']);
+        });
+
         it('resolves HasMany relationships', function () {
             $user = new User;
             $relationships = $this->resolver->resolveRelationships($user);
